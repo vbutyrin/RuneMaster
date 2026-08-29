@@ -163,10 +163,309 @@ private val runes = listOf(
         "Подходит как символ дома, устойчивой основы, принадлежности и наследуемых ресурсов.")
 )
 
+
+data class ProblemConcept(
+    val id: String,
+    val title: String,
+    val domain: String,
+    val phrases: List<String>,
+    val runeNames: List<String>,
+    val explanation: String
+)
+
+data class DetectedProblem(
+    val concept: ProblemConcept,
+    val confidence: Int,
+    val matchedWords: List<String>
+)
+
+data class AnalysisResult(
+    val original: String,
+    val problems: List<DetectedProblem>
+)
+
+private val problemDictionary = listOf(
+
+    ProblemConcept(
+        "money_lack",
+        "Недостаток денег",
+        "Финансы",
+        listOf(
+            "нет денег","мало денег","не хватает денег","без денег",
+            "безденежье","денежная яма","финансовая яма","долги",
+            "долгов","кредит","кредиты","нищий","бедность",
+            "финансы поют романсы","с деньгами плохо",
+            "проблемы с деньгами","денежные проблемы",
+            "полная жопа с деньгами","жопа с деньгами"
+        ),
+        listOf("FEHU","JERA","SOWILO"),
+        "Запрос связан с материальными ресурсами, их получением, сохранением или постепенным увеличением."
+    ),
+
+    ProblemConcept(
+        "job_search",
+        "Поиск работы",
+        "Работа",
+        listOf(
+            "ищу работу","найти работу","поиск работы","новая работа",
+            "нужна работа","нет работы","без работы","безработный",
+            "безработная","трудоустроиться","устроиться на работу",
+            "сменить работу","хочу другую работу","нормальную работу"
+        ),
+        listOf("RAIDHO","ANSUZ","FEHU","TIWAZ","JERA"),
+        "Задача требует движения процесса, коммуникации с работодателями и материального результата."
+    ),
+
+    ProblemConcept(
+        "career_growth",
+        "Продвижение по работе",
+        "Карьера",
+        listOf(
+            "карьерный рост","повышение","повысили","повысили бы",
+            "продвижение по службе","повышение по службе",
+            "повышение зарплаты","вырасти в должности",
+            "новая должность","карьера","начальником",
+            "хочу повышение","хочу должность"
+        ),
+        listOf("TIWAZ","SOWILO","ANSUZ","JERA"),
+        "Выделяются целенаправленность, проявление компетентности, коммуникация и последовательное получение результата."
+    ),
+
+    ProblemConcept(
+        "boss_conflict",
+        "Конфликт с руководством",
+        "Работа",
+        listOf(
+            "начальник достал","начальница достала","шеф достал",
+            "босс достал","начальник задолбал","начальница задолбала",
+            "начальник сжирает","начальница сжирает",
+            "конфликт с начальником","конфликт с начальницей",
+            "проблемы с начальством","давит начальник","давит начальница",
+            "токсичный начальник","токсичная начальница"
+        ),
+        listOf("ANSUZ","ALGIZ","TIWAZ","MANNAZ"),
+        "В запросе важны коммуникация, личные границы, социальное взаимодействие и ясная позиция."
+    ),
+
+    ProblemConcept(
+        "family_conflict",
+        "Конфликты в семье",
+        "Семья",
+        listOf(
+            "проблемы в семье","семейные проблемы","ссоры в семье",
+            "ругаемся","постоянно ругаемся","скандалы","скандал",
+            "дома ругаются","дома ругаемся","конфликт в семье",
+            "семья разваливается","семья рушится",
+            "дома полный капец","дома полная жопа",
+            "в семье полная жопа","жопа в семье"
+        ),
+        listOf("GEBO","ANSUZ","WUNJO","BERKANO","OTHALA"),
+        "Для этой задачи важнее не одно слово «семья», а функции взаимности, общения, гармонизации и устойчивой семейной основы."
+    ),
+
+    ProblemConcept(
+        "relationship_conflict",
+        "Проблемы в отношениях",
+        "Отношения",
+        listOf(
+            "проблемы в отношениях","ссоры с мужем","ссоры с женой",
+            "ругаемся с мужем","ругаемся с женой","парень отдалился",
+            "девушка отдалилась","муж отдалился","жена отдалилась",
+            "отношения рушатся","отношения разваливаются",
+            "не понимаем друг друга","нет взаимопонимания",
+            "с мужиком полная жопа","с мужем полная жопа",
+            "с женой полная жопа","в отношениях полная жопа"
+        ),
+        listOf("GEBO","ANSUZ","WUNJO","EHWAZ"),
+        "Основными функциями становятся взаимность, коммуникация, согласованность и желаемое качество взаимодействия."
+    ),
+
+    ProblemConcept(
+        "find_partner",
+        "Поиск партнёра",
+        "Отношения",
+        listOf(
+            "найти жениха","встретить жениха","ищу жениха",
+            "найти суженого","встретить суженого","суженый",
+            "суженный","будущий муж","найти мужа","встретить мужа",
+            "найти парня","встретить мужчину","найти мужчину",
+            "найти девушку","встретить девушку","найти жену",
+            "встретить жену","хочу замуж","выйти замуж",
+            "хочу жениться","найти любовь","встретить любовь",
+            "вторая половина","найти вторую половину",
+            "устроить личную жизнь","хочу отношения"
+        ),
+        listOf("GEBO","EHWAZ","WUNJO","RAIDHO"),
+        "Запрос трактуется как создание возможностей для взаимного знакомства и развития партнёрского взаимодействия, а не как гарантия появления конкретного человека."
+    ),
+
+    ProblemConcept(
+        "breakup",
+        "Расставание",
+        "Отношения",
+        listOf(
+            "расстались","расставание","ушел муж","ушёл муж",
+            "ушла жена","бросил парень","бросила девушка",
+            "меня бросили","разрыв отношений","развод",
+            "хочу пережить расставание","после развода"
+        ),
+        listOf("DAGAZ","EIHWAZ","MANNAZ","WUNJO"),
+        "Здесь выделяется переход к новому состоянию, устойчивость в период перемены и возвращение внимания к собственной позиции."
+    ),
+
+    ProblemConcept(
+        "home_stability",
+        "Дом и семейная устойчивость",
+        "Семья",
+        listOf(
+            "укрепить семью","сохранить семью","семейное благополучие",
+            "мир в семье","гармония в семье","счастье в семье",
+            "уют дома","домашний уют","защитить дом","семейный очаг"
+        ),
+        listOf("OTHALA","BERKANO","GEBO","WUNJO"),
+        "Запрос связан с домом, принадлежностью, поддержкой развития отношений и взаимностью."
+    ),
+
+    ProblemConcept(
+        "business",
+        "Бизнес и собственное дело",
+        "Финансы",
+        listOf(
+            "бизнес","свой бизнес","свое дело","своё дело",
+            "клиенты","нет клиентов","найти клиентов","продажи",
+            "увеличить продажи","прибыль","доход бизнеса",
+            "развить бизнес","развитие бизнеса"
+        ),
+        listOf("FEHU","JERA","ANSUZ","RAIDHO","SOWILO"),
+        "Задача разделяется на ресурс, устойчивый цикл результата, коммуникацию с людьми и движение процесса."
+    ),
+
+    ProblemConcept(
+        "study",
+        "Учёба и знания",
+        "Обучение",
+        listOf(
+            "учеба","учёба","экзамен","экзамены","сдать экзамен",
+            "обучение","учиться","знания","память","университет",
+            "институт","школа","курс","курсы"
+        ),
+        listOf("ANSUZ","KENAZ","JERA","TIWAZ"),
+        "Основными функциями здесь являются получение знания, понимание, систематическая работа и направленность."
+    ),
+
+    ProblemConcept(
+        "uncertainty",
+        "Неясность ситуации",
+        "Состояние",
+        listOf(
+            "не знаю что делать","не понимаю что делать","в тупике",
+            "запутался","запуталась","ничего не понимаю",
+            "не могу решить","сложно выбрать","нужна ясность",
+            "не понимаю ситуацию"
+        ),
+        listOf("KENAZ","PERTHRO","ANSUZ","MANNAZ"),
+        "Сначала полезнее исследовать неизвестные факторы и сформировать ясное представление о ситуации, а уже затем выбирать направление действия."
+    )
+)
+
+private fun normalizeText(value: String): String {
+    return value
+        .lowercase()
+        .replace('ё', 'е')
+        .replace(Regex("[^а-яa-z0-9\\s-]"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun stemRu(word: String): String {
+    val w = normalizeText(word)
+    val endings = listOf(
+        "иями","ями","ами","его","ого","ему","ому","ыми","ими",
+        "ией","ей","ой","ий","ый","ая","яя","ое","ее","ам","ям",
+        "ах","ях","ом","ем","ов","ев","ую","юю","а","я","ы","и",
+        "у","ю","е","о"
+    )
+    for (e in endings) {
+        if (w.length > e.length + 3 && w.endsWith(e)) {
+            return w.dropLast(e.length)
+        }
+    }
+    return w
+}
+
+private fun phraseScore(text: String, phrase: String): Int {
+    val t = normalizeText(text)
+    val p = normalizeText(phrase)
+
+    if (t.contains(p)) return 100
+
+    val textWords = t.split(" ").filter { it.length > 2 }.map(::stemRu).toSet()
+    val phraseWords = p.split(" ").filter { it.length > 2 }.map(::stemRu)
+
+    if (phraseWords.isEmpty()) return 0
+
+    val hits = phraseWords.count { pw ->
+        textWords.any { tw ->
+            tw == pw || (tw.length >= 5 && pw.length >= 5 &&
+                (tw.startsWith(pw.take(5)) || pw.startsWith(tw.take(5))))
+        }
+    }
+
+    return ((hits.toFloat() / phraseWords.size) * 80).toInt()
+}
+
+private fun analyzeRequest(text: String): AnalysisResult {
+    val normalized = normalizeText(text)
+
+    val detected = problemDictionary.mapNotNull { concept ->
+        val scored = concept.phrases
+            .map { it to phraseScore(normalized, it) }
+            .filter { it.second >= 55 }
+            .sortedByDescending { it.second }
+
+        if (scored.isEmpty()) null
+        else DetectedProblem(
+            concept = concept,
+            confidence = scored.first().second,
+            matchedWords = scored.take(3).map { it.first }
+        )
+    }.sortedWith(
+        compareByDescending<DetectedProblem> { it.confidence }
+            .thenBy { it.concept.domain }
+    )
+
+    return AnalysisResult(text, detected)
+}
+
+private fun recommendedRunes(result: AnalysisResult): List<Pair<RuneInfo, Int>> {
+    val scores = mutableMapOf<String, Int>()
+
+    result.problems.forEachIndexed { index, detected ->
+        detected.concept.runeNames.forEachIndexed { runeIndex, runeName ->
+            val weight = when (runeIndex) {
+                0 -> 6
+                1 -> 4
+                2 -> 3
+                else -> 2
+            }
+            scores[runeName] = (scores[runeName] ?: 0) + weight +
+                    if (index == 0) 2 else 0
+        }
+    }
+
+    return scores.entries
+        .sortedByDescending { it.value }
+        .mapNotNull { e ->
+            runes.find { it.name == e.key }?.let { it to e.value }
+        }
+        .take(7)
+}
+
 sealed class Screen {
     data object Home : Screen()
     data object Runes : Screen()
     data class RuneDetail(val rune: RuneInfo) : Screen()
+    data class Analysis(val text: String) : Screen()
     data class Placeholder(val title: String, val description: String) : Screen()
 }
 
@@ -207,6 +506,11 @@ fun RuneMasterApp() {
         is Screen.RuneDetail -> RuneDetailScreen(
             current.rune,
             onBack = { screen = Screen.Runes }
+        )
+        is Screen.Analysis -> AnalysisScreen(
+            text = current.text,
+            onBack = { screen = Screen.Home },
+            onRune = { screen = Screen.RuneDetail(it) }
         )
         is Screen.Placeholder -> PlaceholderScreen(
             current.title,
@@ -281,10 +585,7 @@ private fun HomeScreen(navigate: (Screen) -> Unit) {
                 onClick = {
                     navigate(
                         if (query.isBlank()) Screen.Runes
-                        else Screen.Placeholder(
-                            "АНАЛИЗ ЗАПРОСА",
-                            "Семантический анализ запроса «$query» будет подключён следующим модулем. Справочник 24 рун уже доступен."
-                        )
+                        else Screen.Analysis(query)
                     )
                 },
                 colors = ButtonDefaults.buttonColors(
@@ -547,6 +848,216 @@ private fun InfoBlock(title: String, body: String) {
             color = Text,
             lineHeight = 22.sp
         )
+    }
+}
+
+
+@Composable
+private fun AnalysisScreen(
+    text: String,
+    onBack: () -> Unit,
+    onRune: (RuneInfo) -> Unit
+) {
+    val result = remember(text) { analyzeRequest(text) }
+    val recommendations = remember(result) { recommendedRunes(result) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader("АНАЛИЗ ЗАПРОСА", "Проблема → функции → подходящие руны")
+
+            Spacer(Modifier.height(18.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CardBg),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Text(
+                        "ИСХОДНЫЙ ЗАПРОС",
+                        color = Gold,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    Text("«$text»", color = Text, lineHeight = 22.sp)
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            if (result.problems.isEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CardBg)
+                ) {
+                    Column(Modifier.padding(18.dp)) {
+                        Text(
+                            "Запрос пока не распознан достаточно точно.",
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Попробуйте назвать сферу и желаемый результат, например: «хочу найти новую работу», «постоянные ссоры в семье и не хватает денег» или «хочу встретить мужчину для серьёзных отношений». Словарь будет постепенно расширяться.",
+                            color = Text,
+                            lineHeight = 21.sp
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    "ОБНАРУЖЕННЫЕ ЗАДАЧИ",
+                    color = Gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                result.problems.forEach { detected ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 5.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardBg)
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                detected.concept.title,
+                                color = GoldLight,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp
+                            )
+                            Text(
+                                detected.concept.domain,
+                                color = Gold,
+                                fontSize = 12.sp
+                            )
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                detected.concept.explanation,
+                                color = Text,
+                                lineHeight = 20.sp,
+                                fontSize = 14.sp
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Совпадение: ${detected.confidence}%",
+                                color = Muted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Text(
+                    "ПОДБОР РУН",
+                    color = Gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+
+                Text(
+                    "Рейтинг учитывает все распознанные задачи одновременно. Нажмите на руну, чтобы открыть её карточку.",
+                    color = Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(Modifier.height(9.dp))
+
+                recommendations.forEachIndexed { index, pair ->
+                    val rune = pair.first
+                    val roles = result.problems
+                        .filter { rune.name in it.concept.runeNames }
+                        .joinToString(" • ") { it.concept.title }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 5.dp)
+                            .clickable { onRune(rune) },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (index == 0)
+                                Color(0xFF251C0D) else CardBg
+                        )
+                    ) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                rune.symbol,
+                                color = GoldLight,
+                                fontSize = 45.sp,
+                                modifier = Modifier.width(66.dp)
+                            )
+
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (index == 0)
+                                        "${rune.name} • ОСНОВНОЙ КАНДИДАТ"
+                                    else rune.name,
+                                    color = GoldLight,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Text(
+                                    rune.russian,
+                                    color = Gold,
+                                    fontSize = 12.sp
+                                )
+
+                                Spacer(Modifier.height(5.dp))
+
+                                Text(
+                                    roles,
+                                    color = Text,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF131B17)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(17.dp)) {
+                        Text(
+                            "КАК ИНТЕРПРЕТИРОВАТЬ РЕЗУЛЬТАТ",
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Spacer(Modifier.height(7.dp))
+                        Text(
+                            "Первая руна является наиболее подходящим кандидатом на центральную функцию только по текущей модели запроса. Остальные руны не должны автоматически наноситься все вместе. Следующий модуль конструктора будет проверять функции, совместимость и избыточность формулы перед созданием става.",
+                            color = Text,
+                            lineHeight = 20.sp,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
