@@ -1,6 +1,12 @@
 package com.runemaster.app
 
 import android.os.Bundle
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -702,6 +708,383 @@ private fun extendedFor(rune: RuneInfo): RuneExtended? =
     extendedRuneKnowledge.find { it.rune == rune.name }
 
 
+
+data class JournalEntry(
+    val id: Long,
+    val client: String,
+    val request: String,
+    val result: String,
+    val date: String
+)
+
+object LocalStore {
+    private const val PREFS = "runemaster_private"
+    private const val JOURNAL = "journal"
+    private const val FAVORITES = "favorite_runes"
+
+    fun saveJournal(context: Context, entries: List<JournalEntry>) {
+        val array = JSONArray()
+
+        entries.forEach { e ->
+            array.put(
+                JSONObject()
+                    .put("id", e.id)
+                    .put("client", e.client)
+                    .put("request", e.request)
+                    .put("result", e.result)
+                    .put("date", e.date)
+            )
+        }
+
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(JOURNAL, array.toString())
+            .apply()
+    }
+
+    fun loadJournal(context: Context): List<JournalEntry> {
+        val raw = context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(JOURNAL, "[]") ?: "[]"
+
+        return try {
+            val array = JSONArray(raw)
+
+            (0 until array.length()).map { i ->
+                val o = array.getJSONObject(i)
+
+                JournalEntry(
+                    id = o.optLong("id"),
+                    client = o.optString("client"),
+                    request = o.optString("request"),
+                    result = o.optString("result"),
+                    date = o.optString("date")
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun favoriteNames(context: Context): Set<String> =
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet(FAVORITES, emptySet())
+            ?.toSet()
+            ?: emptySet()
+
+    fun toggleFavorite(context: Context, name: String) {
+        val set = favoriteNames(context).toMutableSet()
+
+        if (name in set) set.remove(name)
+        else set.add(name)
+
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(FAVORITES, set)
+            .apply()
+    }
+}
+
+data class SemanticAlias(
+    val conceptId: String,
+    val phrases: List<String>
+)
+
+private val extendedAliases = listOf(
+
+    SemanticAlias("money_lack", listOf(
+        "денег кот наплакал",
+        "денег вообще нет",
+        "денег ноль",
+        "карманы пустые",
+        "пустой кошелек",
+        "пустой кошелёк",
+        "нечем платить",
+        "зарплаты не хватает",
+        "до зарплаты не дотягиваю",
+        "денежный капец",
+        "финансовый капец",
+        "финансовый кризис",
+        "денежный кризис",
+        "в долгах как в шелках",
+        "куча долгов",
+        "по уши в долгах"
+    )),
+
+    SemanticAlias("job_search", listOf(
+        "хочу устроиться",
+        "не могу устроиться",
+        "куда устроиться",
+        "ищу место",
+        "нужна нормальная работа",
+        "хочу нормальную работу",
+        "нужна новая работа",
+        "куда пойти работать",
+        "остался без работы",
+        "осталась без работы",
+        "уволили",
+        "сократили",
+        "хочу сменить место"
+    )),
+
+    SemanticAlias("career_growth", listOf(
+        "хочу расти",
+        "хочу вырасти по работе",
+        "не повышают",
+        "не дают повышение",
+        "застрял в должности",
+        "застряла в должности",
+        "хочу больше зарплату",
+        "хочу больше зарплаты",
+        "хочу стать руководителем",
+        "хочу стать начальником",
+        "карьера стоит"
+    )),
+
+    SemanticAlias("boss_conflict", listOf(
+        "шеф задолбал",
+        "шеф задолбала",
+        "шеф бесит",
+        "начальство достало",
+        "начальство задолбало",
+        "директор давит",
+        "руководитель давит",
+        "меня прессуют на работе",
+        "травят на работе",
+        "конфликт с руководителем"
+    )),
+
+    SemanticAlias("family_conflict", listOf(
+        "дома война",
+        "семейная война",
+        "в семье капец",
+        "семья трещит по швам",
+        "не можем договориться дома",
+        "постоянные ссоры дома",
+        "все друг с другом ругаются",
+        "никакого мира дома"
+    )),
+
+    SemanticAlias("relationship_conflict", listOf(
+        "личная жизнь разваливается",
+        "с любимым проблемы",
+        "с любимой проблемы",
+        "отношения не клеятся",
+        "отношениям конец",
+        "мы постоянно ссоримся",
+        "он меня не понимает",
+        "она меня не понимает",
+        "партнер отдалился",
+        "партнёр отдалился",
+        "холод в отношениях"
+    )),
+
+    SemanticAlias("find_partner", listOf(
+        "где мой суженый",
+        "где мой суженный",
+        "где мой жених",
+        "где моя любовь",
+        "хочу встретить своего человека",
+        "ищу своего человека",
+        "хочу любимого",
+        "хочу любимую",
+        "нет мужика",
+        "нет мужчины",
+        "нет девушки",
+        "одна устала",
+        "один устал",
+        "хочу серьезные отношения",
+        "хочу серьёзные отношения"
+    )),
+
+    SemanticAlias("breakup", listOf(
+        "он ушел",
+        "он ушёл",
+        "она ушла",
+        "меня бросил муж",
+        "меня бросила жена",
+        "пережить развод",
+        "пережить разрыв",
+        "забыть бывшего",
+        "забыть бывшую",
+        "отпустить бывшего",
+        "отпустить бывшую"
+    )),
+
+    SemanticAlias("home_stability", listOf(
+        "хочу мира дома",
+        "помириться с семьей",
+        "помириться с семьёй",
+        "наладить семью",
+        "наладить отношения дома",
+        "чтобы дома было спокойно",
+        "сохранить брак"
+    )),
+
+    SemanticAlias("business", listOf(
+        "бизнес не идет",
+        "бизнес не идёт",
+        "дело не идет",
+        "дело не идёт",
+        "клиентов нет",
+        "мало клиентов",
+        "нет заказов",
+        "мало заказов",
+        "продажи упали",
+        "нет прибыли",
+        "поднять продажи",
+        "раскрутить дело"
+    )),
+
+    SemanticAlias("uncertainty", listOf(
+        "что делать вообще не знаю",
+        "полный тупик",
+        "я в тупике",
+        "голова кругом",
+        "ничего не ясно",
+        "не понимаю куда двигаться",
+        "не понимаю куда идти",
+        "не вижу выхода",
+        "как поступить"
+    ))
+)
+
+private fun aliasesFor(concept: ProblemConcept): List<String> {
+    return concept.phrases +
+        extendedAliases
+            .filter { it.conceptId == concept.id }
+            .flatMap { it.phrases }
+}
+
+private val negationWords = setOf(
+    "не",
+    "нет",
+    "никогда",
+    "никак",
+    "перестать",
+    "прекратить",
+    "избежать",
+    "без"
+)
+
+/*
+ * Простая контекстная проверка отрицания.
+ *
+ * Она специально не превращает любую частицу "не" в противоположный
+ * смысл. Например "не могу найти работу" остаётся проблемой поиска работы,
+ * а "не хочу менять работу" подавляет цель "сменить работу".
+ */
+private fun explicitlyRejected(text: String, phrase: String): Boolean {
+    val t = normalizeText(text)
+    val p = normalizeText(phrase)
+
+    val rejectPatterns = listOf(
+        "не хочу $p",
+        "не нужно $p",
+        "не надо $p",
+        "не собираюсь $p",
+        "не желаю $p",
+        "не хочу больше $p"
+    )
+
+    return rejectPatterns.any { t.contains(it) }
+}
+
+private fun analyzeRequestV2(text: String): AnalysisResult {
+    val normalized = normalizeText(text)
+
+    val detected = problemDictionary.mapNotNull { concept ->
+
+        val scored = aliasesFor(concept)
+            .filterNot { explicitlyRejected(normalized, it) }
+            .map { it to phraseScore(normalized, it) }
+            .filter { it.second >= 55 }
+            .sortedByDescending { it.second }
+
+        if (scored.isEmpty()) null
+        else DetectedProblem(
+            concept = concept,
+            confidence = scored.first().second,
+            matchedWords = scored.take(3).map { it.first }
+        )
+    }
+
+    return AnalysisResult(
+        original = text,
+        problems = detected
+            .distinctBy { it.concept.id }
+            .sortedByDescending { it.confidence }
+    )
+}
+
+data class GeneratedFormula(
+    val title: String,
+    val primary: RuneInfo,
+    val supports: List<RuneInfo>,
+    val rationale: String
+)
+
+private fun generateFormulaVariants(
+    analysis: AnalysisResult
+): List<GeneratedFormula> {
+
+    val ranked = recommendedRunes(analysis).map { it.first }
+
+    if (ranked.isEmpty()) return emptyList()
+
+    val primary = ranked.first()
+
+    fun support(count: Int) =
+        ranked
+            .drop(1)
+            .distinctBy { it.name }
+            .take(count)
+
+    val tasks = analysis.problems
+        .joinToString(", ") { it.concept.title.lowercase() }
+
+    return listOf(
+        GeneratedFormula(
+            title = "Компактный",
+            primary = primary,
+            supports = support(2),
+            rationale =
+                "Минимальная формула без лишних элементов. " +
+                "Центральная функция — ${primary.keywords}. " +
+                "Запрос: $tasks."
+        ),
+
+        GeneratedFormula(
+            title = "Сбалансированный",
+            primary = primary,
+            supports = support(3),
+            rationale =
+                "Формула учитывает центральную цель и несколько " +
+                "поддерживающих функций. Она подходит, когда в запросе " +
+                "есть связанные задачи: $tasks."
+        ),
+
+        GeneratedFormula(
+            title = "Расширенный",
+            primary = primary,
+            supports = support(5),
+            rationale =
+                "Расширенный вариант охватывает больше функций запроса. " +
+                "Большое количество знаков не означает автоматически " +
+                "более сильную формулу; этот вариант нужен для анализа " +
+                "сложной многосоставной ситуации."
+        )
+    )
+}
+
+private fun currentDateString(): String =
+    SimpleDateFormat(
+        "dd.MM.yyyy HH:mm",
+        Locale.getDefault()
+    ).format(Date())
+
+
 sealed class Screen {
     data object Home : Screen()
     data object Runes : Screen()
@@ -712,6 +1095,8 @@ sealed class Screen {
     data object Constructor : Screen()
     data object Candles : Screen()
     data object Sources : Screen()
+    data object Journal : Screen()
+    data object Favorites : Screen()
     data class Placeholder(val title: String, val description: String) : Screen()
 }
 
@@ -848,6 +1233,13 @@ fun RuneMasterApp() {
         Screen.Sources -> SourcesScreen(
             onBack = { screen = Screen.Home }
         )
+        Screen.Journal -> JournalScreen(
+            onBack = { screen = Screen.Home }
+        )
+        Screen.Favorites -> FavoritesScreen(
+            onBack = { screen = Screen.Home },
+            onRune = { screen = Screen.RuneDetail(it) }
+        )
         is Screen.Placeholder -> PlaceholderScreen(
             current.title,
             current.description,
@@ -955,10 +1347,11 @@ private fun HomeScreen(navigate: (Screen) -> Unit) {
             }
 
             HomeTile("ᚨ", "ЖУРНАЛ", "История работы") {
-                navigate(Screen.Placeholder(
-                    "ЖУРНАЛ",
-                    "Здесь будут сохраняться локальные записи о запросах, формулах и наблюдениях."
-                ))
+                navigate(Screen.Journal)
+            }
+
+            HomeTile("★", "ИЗБРАННОЕ", "Сохранённые руны") {
+                navigate(Screen.Favorites)
             }
 
             HomeTile("ᛟ", "ИСТОЧНИКИ", "История и современные традиции") {
@@ -1135,6 +1528,38 @@ private fun RuneDetailScreen(rune: RuneInfo, onBack: () -> Unit) {
                 }
             }
 
+            val context = androidx.compose.ui.platform.LocalContext.current
+            var favorite by remember(rune.name) {
+                mutableStateOf(
+                    rune.name in LocalStore.favoriteNames(context)
+                )
+            }
+
+            Button(
+                onClick = {
+                    LocalStore.toggleFavorite(context, rune.name)
+                    favorite = !favorite
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor =
+                        if (favorite) Gold
+                        else CardBg,
+                    contentColor =
+                        if (favorite) Color.Black
+                        else GoldLight
+                )
+            ) {
+                Text(
+                    if (favorite)
+                        "★ В ИЗБРАННОМ"
+                    else
+                        "☆ ДОБАВИТЬ В ИЗБРАННОЕ"
+                )
+            }
+
             AnimatedVisibility(expanded) {
                 Column {
                     InfoBlock("ПРЯМОЕ ПОЛОЖЕНИЕ", rune.upright)
@@ -1190,7 +1615,7 @@ private fun AnalysisScreen(
     onBack: () -> Unit,
     onRune: (RuneInfo) -> Unit
 ) {
-    val result = remember(text) { analyzeRequest(text) }
+    val result = remember(text) { analyzeRequestV2(text) }
     val recommendations = remember(result) { recommendedRunes(result) }
 
     LazyColumn(
@@ -1359,6 +1784,111 @@ private fun AnalysisScreen(
                                     fontSize = 13.sp,
                                     lineHeight = 18.sp
                                 )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                Text(
+                    "ВАРИАНТЫ ФОРМУЛЫ",
+                    color = Gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+
+                Text(
+                    "Программа предлагает несколько уровней сложности, а не автоматически складывает все найденные руны в один став.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                generateFormulaVariants(result).forEach { formula ->
+                    var formulaOpen by remember(formula.title) {
+                        mutableStateOf(false)
+                    }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 5.dp)
+                            .clickable {
+                                formulaOpen = !formulaOpen
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = CardBg
+                        )
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                formula.title.uppercase(),
+                                color = GoldLight,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        formula.primary.symbol,
+                                        color = GoldLight,
+                                        fontSize = 42.sp
+                                    )
+                                    Text(
+                                        "ГЛАВНАЯ",
+                                        color = Gold,
+                                        fontSize = 9.sp
+                                    )
+                                }
+
+                                Spacer(Modifier.width(12.dp))
+
+                                formula.supports.forEach {
+                                    RuneChip(it.name)
+                                }
+                            }
+
+                            AnimatedVisibility(formulaOpen) {
+                                Column {
+                                    Spacer(Modifier.height(12.dp))
+
+                                    Text(
+                                        formula.rationale,
+                                        color = Text,
+                                        fontSize = 13.sp,
+                                        lineHeight = 20.sp
+                                    )
+
+                                    Spacer(Modifier.height(12.dp))
+
+                                    Text(
+                                        "${formula.primary.symbol} ${formula.primary.name}: центральная функция — ${formula.primary.keywords}.",
+                                        color = GoldLight,
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp
+                                    )
+
+                                    formula.supports.forEach { support ->
+                                        Text(
+                                            "${support.symbol} ${support.name}: ${support.practice}",
+                                            color = Text,
+                                            fontSize = 12.sp,
+                                            lineHeight = 18.sp,
+                                            modifier = Modifier.padding(top = 6.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1596,7 +2126,7 @@ private fun ConstructorScreen(onBack: () -> Unit) {
 
     val suggested = remember(intention) {
         if (intention.isBlank()) emptyList()
-        else recommendedRunes(analyzeRequest(intention)).map { it.first }
+        else recommendedRunes(analyzeRequestV2(intention)).map { it.first }
     }
 
     LazyColumn(
@@ -2218,6 +2748,337 @@ private fun SourcesScreen(onBack: () -> Unit) {
                             fontSize = 13.sp,
                             lineHeight = 19.sp
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+@Composable
+private fun JournalScreen(
+    onBack: () -> Unit
+) {
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
+
+    var entries by remember {
+        mutableStateOf(LocalStore.loadJournal(context))
+    }
+
+    var client by remember {
+        mutableStateOf("")
+    }
+
+    var request by remember {
+        mutableStateOf("")
+    }
+
+    var notes by remember {
+        mutableStateOf("")
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 50.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader(
+                "ЖУРНАЛ",
+                "Локальные рабочие записи"
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF131B17)
+                )
+            ) {
+                Text(
+                    "Записи хранятся только в локальном хранилище приложения. Для рабочих заметок предпочтительнее использовать псевдоним или номер клиента вместо лишних персональных данных.",
+                    color = Text,
+                    modifier = Modifier.padding(15.dp),
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+            }
+
+            Spacer(Modifier.height(15.dp))
+
+            OutlinedTextField(
+                value = client,
+                onValueChange = { client = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Клиент / псевдоним")
+                },
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = request,
+                onValueChange = { request = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Запрос")
+                },
+                minLines = 2
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Результат / заметки")
+                },
+                minLines = 3
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Button(
+                onClick = {
+                    if (request.isNotBlank()) {
+                        val newEntry = JournalEntry(
+                            id = System.currentTimeMillis(),
+                            client =
+                                client.ifBlank {
+                                    "Без имени"
+                                },
+                            request = request.trim(),
+                            result = notes.trim(),
+                            date = currentDateString()
+                        )
+
+                        entries =
+                            listOf(newEntry) + entries
+
+                        LocalStore.saveJournal(
+                            context,
+                            entries
+                        )
+
+                        client = ""
+                        request = ""
+                        notes = ""
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Gold,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text(
+                    "СОХРАНИТЬ ЗАПИСЬ",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(Modifier.height(25.dp))
+
+            Text(
+                "СОХРАНЁННЫЕ ЗАПИСИ",
+                color = Gold,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (entries.isEmpty()) {
+                Text(
+                    "Журнал пока пуст.",
+                    color = Muted,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+            }
+
+            entries.forEach { entry ->
+                var expanded by remember(entry.id) {
+                    mutableStateOf(false)
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .clickable {
+                            expanded = !expanded
+                        },
+                    colors = CardDefaults.cardColors(
+                        containerColor = CardBg
+                    )
+                ) {
+                    Column(
+                        Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            entry.client,
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Text(
+                            entry.date,
+                            color = Muted,
+                            fontSize = 11.sp
+                        )
+
+                        Spacer(Modifier.height(5.dp))
+
+                        Text(
+                            entry.request,
+                            color = Text,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+
+                        AnimatedVisibility(expanded) {
+                            Column {
+                                if (entry.result.isNotBlank()) {
+                                    Spacer(Modifier.height(10.dp))
+
+                                    Text(
+                                        "ЗАМЕТКИ",
+                                        color = Gold,
+                                        fontSize = 10.sp
+                                    )
+
+                                    Text(
+                                        entry.result,
+                                        color = Text,
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+
+                                Button(
+                                    onClick = {
+                                        entries =
+                                            entries.filterNot {
+                                                it.id == entry.id
+                                            }
+
+                                        LocalStore.saveJournal(
+                                            context,
+                                            entries
+                                        )
+                                    },
+                                    colors =
+                                        ButtonDefaults.buttonColors(
+                                            containerColor =
+                                                Color(0xFF382020),
+                                            contentColor =
+                                                Color(0xFFFFC8C8)
+                                        )
+                                ) {
+                                    Text("УДАЛИТЬ")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoritesScreen(
+    onBack: () -> Unit,
+    onRune: (RuneInfo) -> Unit
+) {
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
+
+    val names = remember {
+        LocalStore.favoriteNames(context)
+    }
+
+    val favoriteRunes = runes.filter {
+        it.name in names
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader(
+                "ИЗБРАННОЕ",
+                "Сохранённые руны"
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            if (favoriteRunes.isEmpty()) {
+                Text(
+                    "Пока ничего не сохранено. Откройте карточку любой руны и нажмите «Добавить в избранное».",
+                    color = Text,
+                    lineHeight = 21.sp
+                )
+            }
+
+            favoriteRunes.forEach { rune ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .clickable {
+                            onRune(rune)
+                        },
+                    colors = CardDefaults.cardColors(
+                        containerColor = CardBg
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Text(
+                            rune.symbol,
+                            color = GoldLight,
+                            fontSize = 45.sp,
+                            modifier = Modifier.width(70.dp)
+                        )
+
+                        Column {
+                            Text(
+                                "${rune.name} • ${rune.russian}",
+                                color = GoldLight,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                rune.keywords,
+                                color = Muted,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
                 }
             }
