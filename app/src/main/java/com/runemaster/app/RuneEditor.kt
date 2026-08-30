@@ -179,6 +179,14 @@ fun RuneEditorScreen(
     val currentElements by rememberUpdatedState(elements)
     val currentSelected by rememberUpdatedState(selectedId)
 
+    var lastHitPosition by remember {
+        mutableStateOf<Offset?>(null)
+    }
+
+    var lastHitIndex by remember {
+        mutableIntStateOf(0)
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -260,35 +268,105 @@ fun RuneEditorScreen(
                                         val touch =
                                             pressed.first().position
 
-                                        val hit =
-                                            all.asReversed()
-                                                .firstOrNull { rune ->
+                                        val canvasMin =
+                                            min(
+                                                size.width.toFloat(),
+                                                size.height.toFloat()
+                                            )
 
-                                                    val cx =
-                                                        size.width *
-                                                            rune.x
+                                        // Находим ВСЕ руны рядом с касанием.
+                                        // Радиус намеренно меньше старого,
+                                        // чтобы соседние руны не перехватывали
+                                        // огромную область холста.
+                                        val candidates =
+                                            all.mapIndexedNotNull {
+                                                index,
+                                                rune ->
 
-                                                    val cy =
-                                                        size.height *
-                                                            rune.y
+                                                val cx =
+                                                    size.width * rune.x
 
-                                                    val canvasMin =
-                                                        min(
-                                                            size.width.toFloat(),
-                                                            size.height.toFloat()
-                                                        )
+                                                val cy =
+                                                    size.height * rune.y
 
-                                                    val radius =
-                                                        canvasMin *
-                                                            .15f *
-                                                            rune.scale
-                                                                .coerceAtLeast(.6f)
-
+                                                val distance =
                                                     hypot(
                                                         touch.x - cx,
                                                         touch.y - cy
-                                                    ) <= radius
+                                                    )
+
+                                                val radius =
+                                                    (
+                                                        canvasMin *
+                                                        .095f *
+                                                        rune.scale
+                                                            .coerceIn(
+                                                                .55f,
+                                                                2.2f
+                                                            )
+                                                    )
+                                                    .coerceAtLeast(
+                                                        canvasMin * .045f
+                                                    )
+
+                                                if (distance <= radius) {
+                                                    Triple(
+                                                        rune,
+                                                        distance,
+                                                        index
+                                                    )
+                                                } else null
+                                            }
+                                            .sortedWith(
+                                                compareBy<
+                                                    Triple<
+                                                        EditorRune,
+                                                        Float,
+                                                        Int
+                                                    >
+                                                > {
+                                                    it.second
+                                                }.thenByDescending {
+                                                    it.third
                                                 }
+                                            )
+
+                                        val previousPosition =
+                                            lastHitPosition
+
+                                        val sameArea =
+                                            previousPosition != null &&
+                                            hypot(
+                                                touch.x -
+                                                    previousPosition.x,
+                                                touch.y -
+                                                    previousPosition.y
+                                            ) <
+                                            canvasMin * .05f
+
+                                        val hit =
+                                            if (candidates.isEmpty()) {
+                                                null
+                                            } else {
+                                                if (sameArea) {
+                                                    lastHitIndex =
+                                                        (
+                                                            lastHitIndex + 1
+                                                        ) %
+                                                        candidates.size
+                                                } else {
+                                                    lastHitIndex = 0
+                                                }
+
+                                                lastHitPosition = touch
+
+                                                candidates[
+                                                    lastHitIndex
+                                                        .coerceAtMost(
+                                                            candidates.lastIndex
+                                                        )
+                                                ].first
+                                            }
 
                                         if (hit != null) {
                                             selectedId = hit.id
@@ -298,20 +376,9 @@ fun RuneEditorScreen(
                                                 checkpoint()
                                             }
                                         } else {
-                                            activeId =
-                                                currentSelected
-
-                                            val selectedRune =
-                                                currentElements.find {
-                                                    it.id == activeId
-                                                }
-
-                                            if (
-                                                selectedRune != null &&
-                                                !selectedRune.locked
-                                            ) {
-                                                checkpoint()
-                                            }
+                                            lastHitPosition = touch
+                                            lastHitIndex = 0
+                                            activeId = null
                                         }
                                     }
 
@@ -842,7 +909,97 @@ fun RuneEditorScreen(
             }
         }
 
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            "СЛОИ • ВЫБОР РУНЫ",
+            color = Color(0xFFD6A94C),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            "Если руны наложены друг на друга, выберите нужную здесь.",
+            color = Color(0xFFBBAE8B),
+            fontSize = 10.sp
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        LazyRow(
+            horizontalArrangement =
+                Arrangement.spacedBy(4.dp)
+        ) {
+            items(
+                items = elements,
+                key = { it.id }
+            ) { rune ->
+
+                val active =
+                    rune.id == selectedId
+
+                Card(
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor =
+                                if (active)
+                                    Color(0xFF4A3514)
+                                else
+                                    Color(0xFF17130D)
+                        ),
+                    shape =
+                        RoundedCornerShape(10.dp)
+                ) {
+                    TextButton(
+                        onClick = {
+                            selectedId = rune.id
+                        },
+                        contentPadding =
+                            PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 4.dp
+                            )
+                    ) {
+                        Column(
+                            horizontalAlignment =
+                                androidx.compose.ui.Alignment
+                                    .CenterHorizontally
+                        ) {
+                            Text(
+                                rune.symbol,
+                                color =
+                                    if (active)
+                                        Color(0xFFFFE098)
+                                    else
+                                        Color(0xFFD6A94C),
+                                fontSize = 25.sp
+                            )
+
+                            Text(
+                                rune.name,
+                                color =
+                                    if (active)
+                                        Color(0xFFFFE098)
+                                    else
+                                        Color(0xFFBBAE8B),
+                                fontSize = 8.sp
+                            )
+
+                            if (rune.primary) {
+                                Text(
+                                    "★",
+                                    color =
+                                        Color(0xFFF6DA8A),
+                                    fontSize = 8.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         Text(
             "ДОБАВИТЬ РУНУ",
