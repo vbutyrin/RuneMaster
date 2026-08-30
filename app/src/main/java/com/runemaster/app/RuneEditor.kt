@@ -82,6 +82,41 @@ fun RuneEditorScreen(onBack: () -> Unit) {
         mutableLongStateOf(2)
     }
 
+    var undoStack by remember {
+        mutableStateOf<List<List<EditorRune>>>(emptyList())
+    }
+
+    var redoStack by remember {
+        mutableStateOf<List<List<EditorRune>>>(emptyList())
+    }
+
+    fun checkpoint() {
+        undoStack = (undoStack + listOf(elements)).takeLast(40)
+        redoStack = emptyList()
+    }
+
+    fun undo() {
+        val previous = undoStack.lastOrNull() ?: return
+        redoStack = redoStack + listOf(elements)
+        elements = previous
+        undoStack = undoStack.dropLast(1)
+
+        if (elements.none { it.id == selectedId }) {
+            selectedId = elements.lastOrNull()?.id
+        }
+    }
+
+    fun redo() {
+        val next = redoStack.lastOrNull() ?: return
+        undoStack = undoStack + listOf(elements)
+        elements = next
+        redoStack = redoStack.dropLast(1)
+
+        if (elements.none { it.id == selectedId }) {
+            selectedId = elements.lastOrNull()?.id
+        }
+    }
+
     val currentElements by rememberUpdatedState(elements)
     val currentSelected by rememberUpdatedState(selectedId)
 
@@ -199,9 +234,25 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                                         if (hit != null) {
                                             selectedId = hit.id
                                             activeId = hit.id
+
+                                            if (!hit.locked) {
+                                                checkpoint()
+                                            }
                                         } else {
                                             activeId =
                                                 currentSelected
+
+                                            val selectedRune =
+                                                currentElements.find {
+                                                    it.id == activeId
+                                                }
+
+                                            if (
+                                                selectedRune != null &&
+                                                !selectedRune.locked
+                                            ) {
+                                                checkpoint()
+                                            }
                                         }
                                     }
 
@@ -485,6 +536,57 @@ fun RuneEditorScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(8.dp))
 
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            EditorButton(if (undoStack.isEmpty()) "↶·" else "UNDO") {
+                undo()
+            }
+
+            EditorButton(if (redoStack.isEmpty()) "↷·" else "REDO") {
+                redo()
+            }
+
+            EditorButton("AUTO") {
+                if (elements.isNotEmpty()) {
+                    checkpoint()
+
+                    val count = elements.size
+                    elements = elements.mapIndexed { index, rune ->
+                        val spacing =
+                            if (count <= 1) 0f
+                            else .64f / (count - 1)
+
+                        rune.copy(
+                            x =
+                                if (count == 1) .5f
+                                else .18f + spacing * index,
+                            y = .5f,
+                            rotation = 0f,
+                            scale =
+                                if (rune.primary) 1.15f
+                                else .82f
+                        )
+                    }
+                }
+            }
+
+            EditorButton("CENTER") {
+                val id = selectedId
+                if (id != null) {
+                    checkpoint()
+                    elements = elements.map {
+                        if (it.id == id)
+                            it.copy(x = .5f, y = .5f)
+                        else it
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(5.dp))
+
         val selected =
             elements.find {
                 it.id == selectedId
@@ -520,6 +622,7 @@ fun RuneEditorScreen(onBack: () -> Unit) {
             ) {
 
                 EditorButton("↶") {
+                    checkpoint()
                     elements =
                         elements.map {
                             if (
@@ -535,6 +638,7 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                 }
 
                 EditorButton("↷") {
+                    checkpoint()
                     elements =
                         elements.map {
                             if (
@@ -550,6 +654,7 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                 }
 
                 EditorButton("⇋") {
+                    checkpoint()
                     elements =
                         elements.map {
                             if (
@@ -569,6 +674,7 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                         "🔒"
                     else "🔓"
                 ) {
+                    checkpoint()
                     elements =
                         elements.map {
                             if (
@@ -584,6 +690,7 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                 }
 
                 EditorButton("★") {
+                    checkpoint()
                     elements =
                         elements.map {
                             it.copy(
@@ -595,6 +702,7 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                 }
 
                 EditorButton("✕") {
+                    checkpoint()
                     elements =
                         elements.filter {
                             it.id !=
@@ -603,6 +711,74 @@ fun RuneEditorScreen(onBack: () -> Unit) {
 
                     selectedId =
                         elements.lastOrNull()?.id
+                }
+            }
+
+            Spacer(Modifier.height(5.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                EditorButton("COPY") {
+                    checkpoint()
+
+                    val copy = selected.copy(
+                        id = counter++,
+                        x = (selected.x + .06f).coerceAtMost(1.1f),
+                        y = (selected.y + .06f).coerceAtMost(1.1f),
+                        primary = false,
+                        locked = false
+                    )
+
+                    elements = elements + copy
+                    selectedId = copy.id
+                }
+
+                EditorButton("UP") {
+                    val index =
+                        elements.indexOfFirst {
+                            it.id == selected.id
+                        }
+
+                    if (index >= 0 && index < elements.lastIndex) {
+                        checkpoint()
+
+                        val list = elements.toMutableList()
+                        val item = list.removeAt(index)
+                        list.add(index + 1, item)
+                        elements = list
+                    }
+                }
+
+                EditorButton("DOWN") {
+                    val index =
+                        elements.indexOfFirst {
+                            it.id == selected.id
+                        }
+
+                    if (index > 0) {
+                        checkpoint()
+
+                        val list = elements.toMutableList()
+                        val item = list.removeAt(index)
+                        list.add(index - 1, item)
+                        elements = list
+                    }
+                }
+
+                EditorButton("RESET") {
+                    checkpoint()
+
+                    elements = elements.map {
+                        if (it.id == selected.id)
+                            it.copy(
+                                scale = 1f,
+                                rotation = 0f,
+                                mirrorX = false
+                            )
+                        else it
+                    }
                 }
             }
         }
@@ -631,6 +807,8 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                 ) {
                     TextButton(
                         onClick = {
+
+                            checkpoint()
 
                             val item =
                                 EditorRune(
