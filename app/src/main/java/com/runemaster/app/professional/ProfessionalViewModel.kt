@@ -2,23 +2,30 @@ package com.runemaster.app.professional
 
 import android.app.Application
 import android.content.Intent
+import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 @Serializable
 data class RuneMasterBackup(
     val format: String = "RuneMasterBackup",
-    val version: Int = 1,
-    val exportedAt: Long = System.currentTimeMillis(),
+    val version: Int = 2,
+    val exportedAt: Long =
+        System.currentTimeMillis(),
     val clients: List<ClientEntity>,
     val journal: List<JournalEntity>,
     val formulas: List<FormulaEntity>
@@ -29,7 +36,16 @@ class ProfessionalViewModel(
 ) : AndroidViewModel(application) {
 
     private val dao =
-        ProfessionalDatabase.get(application).dao()
+        ProfessionalDatabase
+            .get(application)
+            .dao()
+
+    private val json =
+        Json {
+            prettyPrint = true
+            encodeDefaults = true
+            ignoreUnknownKeys = true
+        }
 
     val clients =
         dao.clients().stateIn(
@@ -68,36 +84,15 @@ class ProfessionalViewModel(
         }
     }
 
-    fun saveFormula(
-        clientId: Long?,
-        title: String,
-        intention: String,
-        primary: String,
-        supporting: List<String>,
-        explanation: String
+    fun deleteClient(
+        client: ClientEntity
     ) {
-        if (
-            title.isBlank() ||
-            intention.isBlank() ||
-            primary.isBlank()
-        ) return
-
         viewModelScope.launch {
-            dao.insertFormula(
-                FormulaEntity(
-                    clientId = clientId,
-                    title = title.trim(),
-                    intention = intention.trim(),
-                    primaryRune = primary,
-                    supportingRunes =
-                        supporting.joinToString(","),
-                    explanation = explanation.trim()
-                )
-            )
+            dao.deleteClient(client)
         }
     }
 
-    fun saveJournal(
+    fun addJournal(
         clientId: Long,
         request: String,
         analysis: String,
@@ -111,7 +106,43 @@ class ProfessionalViewModel(
                     clientId = clientId,
                     request = request.trim(),
                     analysis = analysis.trim(),
-                    practitionerNotes = notes.trim()
+                    practitionerNotes =
+                        notes.trim()
+                )
+            )
+        }
+    }
+
+    fun saveFormula(
+        clientId: Long?,
+        title: String,
+        intention: String,
+        primaryRune: String,
+        supportingRunes: List<String>,
+        explanation: String,
+        compositionJson: String
+    ) {
+        if (
+            title.isBlank() ||
+            primaryRune.isBlank()
+        ) return
+
+        viewModelScope.launch {
+            dao.insertFormula(
+                FormulaEntity(
+                    clientId = clientId,
+                    title = title.trim(),
+                    intention =
+                        intention.trim(),
+                    primaryRune =
+                        primaryRune,
+                    supportingRunes =
+                        supportingRunes
+                            .joinToString(","),
+                    explanation =
+                        explanation.trim(),
+                    compositionJson =
+                        compositionJson
                 )
             )
         }
@@ -121,25 +152,34 @@ class ProfessionalViewModel(
         onReady: (Intent) -> Unit
     ) {
         viewModelScope.launch {
-            val backup = RuneMasterBackup(
-                clients = dao.allClientsExport(),
-                journal = dao.allJournalExport(),
-                formulas = dao.allFormulasExport()
-            )
 
-            val json = Json {
-                prettyPrint = true
-                encodeDefaults = true
-            }.encodeToString(backup)
+            val backup =
+                RuneMasterBackup(
+                    clients =
+                        dao.allClientsExport(),
+                    journal =
+                        dao.allJournalExport(),
+                    formulas =
+                        dao.allFormulasExport()
+                )
 
-            val context = getApplication<Application>()
+            val text =
+                json.encodeToString(
+                    backup
+                )
 
-            val dir = File(
-                context.cacheDir,
-                "exports"
-            ).apply { mkdirs() }
+            val context =
+                getApplication<Application>()
 
-            val stamp =
+            val directory =
+                File(
+                    context.cacheDir,
+                    "exports"
+                ).apply {
+                    mkdirs()
+                }
+
+            val date =
                 SimpleDateFormat(
                     "yyyyMMdd-HHmmss",
                     Locale.US
@@ -147,11 +187,15 @@ class ProfessionalViewModel(
 
             val file =
                 File(
-                    dir,
-                    "RuneMaster-$stamp.json"
+                    directory,
+                    "RuneMaster-Backup-$date.json"
                 )
 
-            file.writeText(json)
+            withContext(
+                Dispatchers.IO
+            ) {
+                file.writeText(text)
+            }
 
             val uri =
                 FileProvider.getUriForFile(
@@ -160,13 +204,19 @@ class ProfessionalViewModel(
                     file
                 )
 
-            val intent =
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "application/json"
+            val send =
+                Intent(
+                    Intent.ACTION_SEND
+                ).apply {
+
+                    type =
+                        "application/json"
+
                     putExtra(
                         Intent.EXTRA_STREAM,
                         uri
                     )
+
                     addFlags(
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
@@ -174,10 +224,81 @@ class ProfessionalViewModel(
 
             onReady(
                 Intent.createChooser(
-                    intent,
+                    send,
                     "Экспорт RuneMaster"
                 )
             )
+        }
+    }
+
+    fun importBackup(
+        uri: Uri,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+
+            try {
+
+                val context =
+                    getApplication<Application>()
+
+                val text =
+                    withContext(
+                        Dispatchers.IO
+                    ) {
+                        context.contentResolver
+                            .openInputStream(uri)
+                            ?.bufferedReader()
+                            ?.use {
+                                it.readText()
+                            }
+                    }
+                    ?: throw Exception(
+                        "Файл не удалось прочитать"
+                    )
+
+                val backup =
+                    json.decodeFromString<
+                        RuneMasterBackup
+                    >(text)
+
+                if (
+                    backup.format !=
+                    "RuneMasterBackup"
+                ) {
+                    throw Exception(
+                        "Это не резервная копия RuneMaster"
+                    )
+                }
+
+                dao.importClients(
+                    backup.clients
+                )
+
+                dao.importFormulas(
+                    backup.formulas
+                )
+
+                dao.importJournal(
+                    backup.journal
+                )
+
+                onResult(
+                    true,
+                    "Восстановлено: " +
+                        "${backup.clients.size} клиентов, " +
+                        "${backup.journal.size} записей, " +
+                        "${backup.formulas.size} формул"
+                )
+
+            } catch (e: Exception) {
+
+                onResult(
+                    false,
+                    e.message
+                        ?: "Ошибка импорта"
+                )
+            }
         }
     }
 }

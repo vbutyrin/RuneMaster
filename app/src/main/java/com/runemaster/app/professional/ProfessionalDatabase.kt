@@ -2,6 +2,8 @@ package com.runemaster.app.professional
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 
@@ -56,69 +58,133 @@ data class FormulaEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val clientId: Long? = null,
+
     val title: String,
     val intention: String,
+
     val primaryRune: String,
     val supportingRunes: String,
+
     val explanation: String = "",
     val activationNotes: String = "",
     val completionNotes: String = "",
+
+    // JSON полной геометрии Editor.
+    val compositionJson: String = "",
+
     val createdAt: Long = System.currentTimeMillis()
 )
 
 @Dao
 interface ProfessionalDao {
 
-    @Query("SELECT * FROM clients ORDER BY displayName COLLATE NOCASE")
+    @Query("""
+        SELECT * FROM clients
+        ORDER BY displayName COLLATE NOCASE
+    """)
     fun clients(): Flow<List<ClientEntity>>
 
-    @Query("SELECT * FROM journal ORDER BY createdAt DESC")
+    @Query("""
+        SELECT * FROM journal
+        ORDER BY createdAt DESC
+    """)
     fun journal(): Flow<List<JournalEntity>>
 
-    @Query("SELECT * FROM journal WHERE clientId=:clientId ORDER BY createdAt DESC")
-    fun journalForClient(clientId: Long): Flow<List<JournalEntity>>
-
-    @Query("SELECT * FROM formulas ORDER BY createdAt DESC")
+    @Query("""
+        SELECT * FROM formulas
+        ORDER BY createdAt DESC
+    """)
     fun formulas(): Flow<List<FormulaEntity>>
 
-    @Query("SELECT * FROM formulas WHERE clientId=:clientId ORDER BY createdAt DESC")
-    fun formulasForClient(clientId: Long): Flow<List<FormulaEntity>>
+    @Query("""
+        SELECT * FROM journal
+        WHERE clientId=:clientId
+        ORDER BY createdAt DESC
+    """)
+    fun journalForClient(
+        clientId: Long
+    ): Flow<List<JournalEntity>>
+
+    @Query("""
+        SELECT * FROM formulas
+        WHERE clientId=:clientId
+        ORDER BY createdAt DESC
+    """)
+    fun formulasForClient(
+        clientId: Long
+    ): Flow<List<FormulaEntity>>
 
     @Insert
-    suspend fun insertClient(value: ClientEntity): Long
+    suspend fun insertClient(
+        value: ClientEntity
+    ): Long
 
     @Update
-    suspend fun updateClient(value: ClientEntity)
+    suspend fun updateClient(
+        value: ClientEntity
+    )
 
     @Delete
-    suspend fun deleteClient(value: ClientEntity)
+    suspend fun deleteClient(
+        value: ClientEntity
+    )
 
     @Insert
-    suspend fun insertJournal(value: JournalEntity): Long
+    suspend fun insertJournal(
+        value: JournalEntity
+    ): Long
 
     @Update
-    suspend fun updateJournal(value: JournalEntity)
+    suspend fun updateJournal(
+        value: JournalEntity
+    )
 
     @Delete
-    suspend fun deleteJournal(value: JournalEntity)
+    suspend fun deleteJournal(
+        value: JournalEntity
+    )
 
     @Insert
-    suspend fun insertFormula(value: FormulaEntity): Long
+    suspend fun insertFormula(
+        value: FormulaEntity
+    ): Long
 
     @Update
-    suspend fun updateFormula(value: FormulaEntity)
+    suspend fun updateFormula(
+        value: FormulaEntity
+    )
 
     @Delete
-    suspend fun deleteFormula(value: FormulaEntity)
+    suspend fun deleteFormula(
+        value: FormulaEntity
+    )
 
     @Query("SELECT * FROM clients")
-    suspend fun allClientsExport(): List<ClientEntity>
+    suspend fun allClientsExport():
+        List<ClientEntity>
 
     @Query("SELECT * FROM journal")
-    suspend fun allJournalExport(): List<JournalEntity>
+    suspend fun allJournalExport():
+        List<JournalEntity>
 
     @Query("SELECT * FROM formulas")
-    suspend fun allFormulasExport(): List<FormulaEntity>
+    suspend fun allFormulasExport():
+        List<FormulaEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun importClients(
+        values: List<ClientEntity>
+    )
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun importJournal(
+        values: List<JournalEntity>
+    )
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun importFormulas(
+        values: List<FormulaEntity>
+    )
 }
 
 @Database(
@@ -127,26 +193,53 @@ interface ProfessionalDao {
         JournalEntity::class,
         FormulaEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
-abstract class ProfessionalDatabase : RoomDatabase() {
+abstract class ProfessionalDatabase :
+    RoomDatabase() {
 
     abstract fun dao(): ProfessionalDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: ProfessionalDatabase? = null
 
-        fun get(context: Context): ProfessionalDatabase =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    ProfessionalDatabase::class.java,
-                    "runemaster-private.db"
-                ).build().also {
-                    INSTANCE = it
+        @Volatile
+        private var INSTANCE:
+            ProfessionalDatabase? = null
+
+        private val MIGRATION_1_2 =
+            object : Migration(1, 2) {
+                override fun migrate(
+                    db: SupportSQLiteDatabase
+                ) {
+                    db.execSQL(
+                        """
+                        ALTER TABLE formulas
+                        ADD COLUMN compositionJson
+                        TEXT NOT NULL DEFAULT ''
+                        """.trimIndent()
+                    )
                 }
+            }
+
+        fun get(
+            context: Context
+        ): ProfessionalDatabase =
+            INSTANCE ?: synchronized(this) {
+
+                INSTANCE ?:
+                    Room.databaseBuilder(
+                        context.applicationContext,
+                        ProfessionalDatabase::class.java,
+                        "runemaster-private.db"
+                    )
+                        .addMigrations(
+                            MIGRATION_1_2
+                        )
+                        .build()
+                        .also {
+                            INSTANCE = it
+                        }
             }
     }
 }
