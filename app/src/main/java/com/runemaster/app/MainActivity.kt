@@ -1526,10 +1526,19 @@ fun RuneMasterApp() {
             current.rune,
             onBack = { screen = Screen.Runes }
         )
-        is Screen.Analysis -> AnalysisScreen(
+        is Screen.Analysis -> SemanticAnalysisScreen(
             text = current.text,
-            onBack = { screen = Screen.Home },
-            onRune = { screen = Screen.RuneDetail(it) }
+            runeLookup = { runeName ->
+                runes.find { rune ->
+                    rune.name == runeName
+                }
+            },
+            onBack = {
+                screen = Screen.Home
+            },
+            onRune = { rune: RuneInfo ->
+                screen = Screen.RuneDetail(rune)
+            }
         )
         Screen.Diagnostics -> DiagnosticsScreen(
             onBack = { screen = Screen.Home },
