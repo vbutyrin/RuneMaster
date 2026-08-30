@@ -3,7 +3,7 @@ package com.runemaster.app
 import com.runemaster.app.semantic.SemanticEngine
 import com.runemaster.app.semantic.RuneSolutionEngine
 import com.runemaster.app.semantic.Domain
-import com.runemaster.app.semantic.Intent
+import com.runemaster.app.semantic.Intent as SemanticIntent
 import com.runemaster.app.semantic.ProblemType
 import com.runemaster.app.semantic.RuneFunction
 
@@ -1964,25 +1964,25 @@ private fun AnalysisScreen(
             else -> "Сфера не определена"
         }
 
-    fun intentName(value: Intent): String =
+    fun intentName(value: SemanticIntent): String =
         when (value) {
-            Intent.GET -> "получить результат"
-            Intent.FIND -> "найти"
-            Intent.INCREASE -> "увеличить"
-            Intent.DECREASE -> "уменьшить"
-            Intent.KEEP -> "сохранить"
-            Intent.RESTORE -> "восстановить"
-            Intent.IMPROVE -> "улучшить"
-            Intent.END -> "завершить"
-            Intent.REMOVE -> "устранить"
-            Intent.PROTECT -> "защитить"
-            Intent.CLARIFY -> "прояснить"
-            Intent.ACCELERATE -> "ускорить"
-            Intent.CHANGE -> "изменить"
-            Intent.AGREE -> "достичь согласования"
-            Intent.COMMUNICATE -> "наладить коммуникацию"
-            Intent.DEVELOP -> "развить"
-            Intent.STABILIZE -> "стабилизировать"
+            SemanticIntent.GET -> "получить результат"
+            SemanticIntent.FIND -> "найти"
+            SemanticIntent.INCREASE -> "увеличить"
+            SemanticIntent.DECREASE -> "уменьшить"
+            SemanticIntent.KEEP -> "сохранить"
+            SemanticIntent.RESTORE -> "восстановить"
+            SemanticIntent.IMPROVE -> "улучшить"
+            SemanticIntent.END -> "завершить"
+            SemanticIntent.REMOVE -> "устранить"
+            SemanticIntent.PROTECT -> "защитить"
+            SemanticIntent.CLARIFY -> "прояснить"
+            SemanticIntent.ACCELERATE -> "ускорить"
+            SemanticIntent.CHANGE -> "изменить"
+            SemanticIntent.AGREE -> "достичь согласования"
+            SemanticIntent.COMMUNICATE -> "наладить коммуникацию"
+            SemanticIntent.DEVELOP -> "развить"
+            SemanticIntent.STABILIZE -> "стабилизировать"
             else -> "цель пока не определена"
         }
 
