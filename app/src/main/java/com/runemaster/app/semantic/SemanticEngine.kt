@@ -62,6 +62,13 @@ enum class ProblemType {
     UNKNOWN
 }
 
+data class IntentRelation(
+    val intent: Intent,
+    val phrase: String,
+    val negated: Boolean,
+    val nearbyEntities: Set<String>
+)
+
 data class SemanticResult(
     val original: String,
     val domains: Set<Domain>,
@@ -70,6 +77,7 @@ data class SemanticResult(
     val entities: Set<String>,
     val tokens: Set<String>,
     val negatedTokens: Set<String>,
+    val intentRelations: List<IntentRelation> = emptyList(),
     val confidence: Float
 )
 
@@ -422,6 +430,24 @@ object SemanticEngine {
                 matches(normalized, tokenSet, it)
             }.keys
 
+        val relations =
+            detectIntentRelations(
+                normalized,
+                words
+            )
+
+        val positiveIntents =
+            relations
+                .filter { !it.negated }
+                .map { it.intent }
+                .toSet()
+
+        val finalIntents =
+            if (positiveIntents.isNotEmpty())
+                positiveIntents
+            else
+                detectedIntents
+
         val evidence =
             detectedDomains.size +
             detectedIntents.size +
@@ -439,7 +465,7 @@ object SemanticEngine {
                     setOf(Domain.UNKNOWN)
                 },
             intents =
-                detectedIntents.ifEmpty {
+                finalIntents.ifEmpty {
                     setOf(Intent.UNKNOWN)
                 },
             problems =
@@ -449,8 +475,96 @@ object SemanticEngine {
             entities = detectedEntities,
             tokens = tokenSet,
             negatedTokens = negative,
+            intentRelations = relations,
             confidence = confidence
         )
+    }
+
+    private fun detectIntentRelations(
+        text: String,
+        words: List<String>
+    ): List<IntentRelation> {
+
+        val result =
+            mutableListOf<IntentRelation>()
+
+        intents.forEach { (intent, variants) ->
+
+            variants.forEach { rawVariant ->
+
+                val variant = normalize(rawVariant)
+
+                var start = text.indexOf(variant)
+
+                while (start >= 0) {
+
+                    val before =
+                        text.substring(
+                            0,
+                            start
+                        )
+                        .trim()
+                        .split(" ")
+                        .takeLast(4)
+
+                    val negated =
+                        before.any {
+                            it in setOf(
+                                "не",
+                                "никогда",
+                                "ни"
+                            )
+                        }
+
+                    val from =
+                        (start - 55)
+                            .coerceAtLeast(0)
+
+                    val to =
+                        (start + variant.length + 55)
+                            .coerceAtMost(text.length)
+
+                    val context =
+                        text.substring(from, to)
+
+                    val nearby =
+                        entityGroups
+                            .filterValues {
+                                entityVariants ->
+                                entityVariants.any {
+                                    ev ->
+                                    context.contains(
+                                        normalize(ev)
+                                    )
+                                }
+                            }
+                            .keys
+
+                    result +=
+                        IntentRelation(
+                            intent = intent,
+                            phrase = variant,
+                            negated = negated,
+                            nearbyEntities = nearby
+                        )
+
+                    start =
+                        text.indexOf(
+                            variant,
+                            start + variant.length
+                        )
+                }
+            }
+        }
+
+        return result
+            .distinctBy {
+                Triple(
+                    it.intent,
+                    it.phrase,
+                    it.negated
+                )
+            }
     }
 
     private fun matches(

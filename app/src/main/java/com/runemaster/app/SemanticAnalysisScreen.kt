@@ -30,7 +30,8 @@ fun SemanticAnalysisScreen(
     text: String,
     runeLookup: (String) -> RuneInfo?,
     onBack: () -> Unit,
-    onRune: (RuneInfo) -> Unit
+    onRune: (RuneInfo) -> Unit,
+    onOpenFormula: (EditorFormulaInput) -> Unit
 ) {
     val solution = remember(text) {
         RuneSolutionEngine.solve(text)
@@ -324,6 +325,43 @@ fun SemanticAnalysisScreen(
                             fontSize = 11.sp,
                             lineHeight = 16.sp
                         )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                val primary =
+                                    formula.primary
+                                        ?: return@Button
+
+                                onOpenFormula(
+                                    EditorFormulaInput(
+                                        title = formula.type,
+                                        intention = text,
+                                        primaryRune =
+                                            primary.rune,
+                                        supportingRunes =
+                                            formula.supporting
+                                                .map { it.rune }
+                                    )
+                                )
+                            },
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor =
+                                        SemanticGold,
+                                    contentColor =
+                                        Color.Black
+                                )
+                        ) {
+                            Text(
+                                "ОТКРЫТЬ В EDITOR",
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

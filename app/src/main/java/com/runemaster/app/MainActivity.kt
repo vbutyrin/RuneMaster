@@ -1407,6 +1407,9 @@ sealed class Screen {
     data object Diagnostics : Screen()
     data object Formulas : Screen()
     data object Constructor : Screen()
+    data class FormulaEditor(
+        val formula: EditorFormulaInput
+    ) : Screen()
     data object Candles : Screen()
     data object Sources : Screen()
     data object Journal : Screen()
@@ -1538,6 +1541,9 @@ fun RuneMasterApp() {
             },
             onRune = { rune: RuneInfo ->
                 screen = Screen.RuneDetail(rune)
+            },
+            onOpenFormula = { formula ->
+                screen = Screen.FormulaEditor(formula)
             }
         )
         Screen.Diagnostics -> DiagnosticsScreen(
@@ -1550,6 +1556,13 @@ fun RuneMasterApp() {
         Screen.Constructor -> RuneEditorScreen(
             onBack = { screen = Screen.Home }
         )
+        is Screen.FormulaEditor -> RuneEditorScreen(
+            onBack = {
+                screen = Screen.Home
+            },
+            initialFormula = current.formula
+        )
+
         Screen.Candles -> CandlesScreen(
             onBack = { screen = Screen.Home }
         )

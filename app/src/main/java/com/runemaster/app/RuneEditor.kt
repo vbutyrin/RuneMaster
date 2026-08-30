@@ -58,11 +58,15 @@ private val editorRunes = listOf(
 )
 
 @Composable
-fun RuneEditorScreen(onBack: () -> Unit) {
+fun RuneEditorScreen(
+    onBack: () -> Unit,
+    initialFormula: EditorFormulaInput? = null
+) {
 
-    var elements by remember {
-        mutableStateOf(
-            listOf(
+    fun initialElements(): List<EditorRune> {
+
+        if (initialFormula == null) {
+            return listOf(
                 EditorRune(
                     id = 1,
                     symbol = "ᚷ",
@@ -71,15 +75,70 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                     scale = 1.15f
                 )
             )
+        }
+
+        val names =
+            listOf(initialFormula.primaryRune) +
+                initialFormula.supportingRunes
+
+        val count = names.size
+
+        return names.mapIndexedNotNull {
+            index,
+            name ->
+
+            val found =
+                editorRunes.find {
+                    it.second == name
+                } ?: return@mapIndexedNotNull null
+
+            val x =
+                if (index == 0)
+                    .5f
+                else if (count <= 2)
+                    .68f
+                else
+                    .16f +
+                        (.68f /
+                            (count - 2)
+                                .coerceAtLeast(1)) *
+                        (index - 1)
+
+            EditorRune(
+                id = (index + 1).toLong(),
+                symbol = found.first,
+                name = found.second,
+                x = x,
+                y =
+                    if (index == 0)
+                        .47f
+                    else .63f,
+                scale =
+                    if (index == 0)
+                        1.25f
+                    else .78f,
+                primary =
+                    index == 0
+            )
+        }
+    }
+
+    var elements by remember(initialFormula) {
+        mutableStateOf(
+            initialElements()
         )
     }
 
-    var selectedId by remember {
-        mutableStateOf<Long?>(1)
+    var selectedId by remember(initialFormula) {
+        mutableStateOf<Long?>(
+            elements.firstOrNull()?.id
+        )
     }
 
-    var counter by remember {
-        mutableLongStateOf(2)
+    var counter by remember(initialFormula) {
+        mutableLongStateOf(
+            (elements.maxOfOrNull { it.id } ?: 0L) + 1L
+        )
     }
 
     var undoStack by remember {
