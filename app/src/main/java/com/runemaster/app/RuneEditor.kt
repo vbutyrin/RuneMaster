@@ -187,6 +187,10 @@ fun RuneEditorScreen(
         mutableIntStateOf(0)
     }
 
+    var layerTransformMode by remember {
+        mutableStateOf(false)
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -264,6 +268,12 @@ fun RuneEditorScreen(
                                         currentElements
 
                                     if (activeId == null) {
+
+                                        // Если руна выбрана через панель СЛОИ,
+                                        // весь следующий жест относится к ней.
+                                        if (layerTransformMode) {
+                                            activeId = currentSelected
+                                        }
 
                                         val touch =
                                             pressed.first().position
@@ -968,6 +978,7 @@ fun RuneEditorScreen(
                     TextButton(
                         onClick = {
                             selectedId = rune.id
+                            layerTransformMode = true
                         },
                         contentPadding =
                             PaddingValues(
