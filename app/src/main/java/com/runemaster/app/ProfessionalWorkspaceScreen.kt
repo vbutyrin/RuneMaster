@@ -260,6 +260,17 @@ fun ProfessionalWorkspaceScreen(
 
             WorkspaceTab.CLIENTS -> {
 
+                Text(
+                    "КАРТОТЕКА",
+                    color = ProGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(
+                        top = 4.dp,
+                        bottom = 5.dp
+                    )
+                )
+
                 Button(
                     modifier =
                         Modifier.fillMaxWidth(),
@@ -276,7 +287,7 @@ fun ProfessionalWorkspaceScreen(
                             )
                 ) {
                     Text(
-                        "+ НОВЫЙ КЛИЕНТ",
+                        "+ ДОБАВИТЬ КЛИЕНТА",
                         fontWeight =
                             FontWeight.Bold
                     )
@@ -364,7 +375,7 @@ fun ProfessionalWorkspaceScreen(
                                     }
                                 ) {
                                     Text(
-                                        "+ ЗАПИСЬ В ЖУРНАЛ",
+                                        "+ НОВЫЙ СЕАНС",
                                         color =
                                             ProGold
                                     )

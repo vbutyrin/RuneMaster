@@ -1402,7 +1402,10 @@ private fun currentDateString(): String =
 sealed class Screen {
     data object Home : Screen()
     data object Runes : Screen()
-    data class RuneDetail(val rune: RuneInfo) : Screen()
+    data class RuneDetail(
+        val rune: RuneInfo,
+        val returnTo: Screen = Runes
+    ) : Screen()
     data class Analysis(val text: String) : Screen()
     data object Diagnostics : Screen()
     data object Formulas : Screen()
@@ -1513,21 +1516,42 @@ private fun RuneBackground(content: @Composable () -> Unit) {
 
 @Composable
 fun RuneMasterApp() {
-    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+    var screen by remember {
+        mutableStateOf<Screen>(Screen.Home)
+    }
+
+    var lastQuery by remember {
+        mutableStateOf("")
+    }
 
     BackHandler(screen !is Screen.Home) {
         screen = Screen.Home
     }
 
     when (val current = screen) {
-        Screen.Home -> HomeScreen { screen = it }
+        Screen.Home -> HomeScreen(
+            navigate = {
+                screen = it
+            },
+            savedQuery = lastQuery,
+            onQueryChange = {
+                lastQuery = it
+            }
+        )
         Screen.Runes -> RuneListScreen(
             onBack = { screen = Screen.Home },
-            onRune = { screen = Screen.RuneDetail(it) }
+            onRune = {
+                screen = Screen.RuneDetail(
+                    rune = it,
+                    returnTo = Screen.Runes
+                )
+            }
         )
         is Screen.RuneDetail -> RuneDetailScreen(
             current.rune,
-            onBack = { screen = Screen.Runes }
+            onBack = {
+                screen = current.returnTo
+            }
         )
         is Screen.Analysis -> SemanticAnalysisScreen(
             text = current.text,
@@ -1540,7 +1564,10 @@ fun RuneMasterApp() {
                 screen = Screen.Home
             },
             onRune = { rune: RuneInfo ->
-                screen = Screen.RuneDetail(rune)
+                screen = Screen.RuneDetail(
+                    rune = rune,
+                    returnTo = current
+                )
             },
             onOpenFormula = { formula ->
                 screen = Screen.FormulaEditor(formula)
@@ -1605,8 +1632,14 @@ private fun AppHeader(title: String, subtitle: String? = null) {
 }
 
 @Composable
-private fun HomeScreen(navigate: (Screen) -> Unit) {
-    var query by remember { mutableStateOf("") }
+private fun HomeScreen(
+    navigate: (Screen) -> Unit,
+    savedQuery: String,
+    onQueryChange: (String) -> Unit
+) {
+    var query by remember(savedQuery) {
+        mutableStateOf(savedQuery)
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -1621,7 +1654,10 @@ private fun HomeScreen(navigate: (Screen) -> Unit) {
 
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = {
+                    query = it
+                    onQueryChange(it)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Опишите ситуацию") },
                 placeholder = {
@@ -2390,6 +2426,30 @@ private fun RuneChip(name: String) {
 }
 
 @Composable
+private fun RuneFormulaGrid(
+    runeNames: List<String>
+) {
+    val rows = runeNames.chunked(4)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.Center
+            ) {
+                row.forEach { name ->
+                    RuneChip(name)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun FormulaCard(formula: FormulaTemplate) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -2412,13 +2472,11 @@ private fun FormulaCard(formula: FormulaTemplate) {
 
             Spacer(Modifier.height(12.dp))
 
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                RuneChip(formula.primary)
-                formula.supports.take(4).forEach { RuneChip(it) }
-            }
+            RuneFormulaGrid(
+                runeNames =
+                    listOf(formula.primary) +
+                        formula.supports
+            )
 
             Spacer(Modifier.height(9.dp))
             Text(
