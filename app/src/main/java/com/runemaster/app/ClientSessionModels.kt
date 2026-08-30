@@ -24,7 +24,6 @@ data class ClientSessionDraft(
     val formula: EditorFormulaInput
 )
 
-data class CompletedClientSession(
-    val draft: ClientSessionDraft,
-    val compositionJson: String
+data class ClientEditorInput(
+    val draft: ClientSessionDraft
 )

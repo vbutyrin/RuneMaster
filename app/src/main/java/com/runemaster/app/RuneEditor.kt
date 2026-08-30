@@ -60,7 +60,9 @@ private val editorRunes = listOf(
 @Composable
 fun RuneEditorScreen(
     onBack: () -> Unit,
-    initialFormula: EditorFormulaInput? = null
+    initialFormula: EditorFormulaInput? = null,
+    clientDraft: ClientSessionDraft? = null,
+    onSaveClient: ((ClientSessionDraft, List<EditorRune>) -> Unit)? = null
 ) {
 
     fun initialElements(): List<EditorRune> {
@@ -1026,6 +1028,61 @@ fun RuneEditorScreen(
         }
 
         Spacer(Modifier.height(8.dp))
+
+        if (
+            clientDraft != null &&
+            onSaveClient != null
+        ) {
+            Spacer(Modifier.height(9.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF182018)
+                )
+            ) {
+                Column(
+                    Modifier.padding(12.dp)
+                ) {
+                    Text(
+                        "КЛИЕНТ: ${clientDraft.clientName}",
+                        color = Color(0xFFF6DA8A),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        clientDraft.problem,
+                        color = Color(0xFFBBAE8B),
+                        fontSize = 10.sp,
+                        maxLines = 2
+                    )
+
+                    Spacer(Modifier.height(7.dp))
+
+                    Button(
+                        onClick = {
+                            onSaveClient(
+                                clientDraft,
+                                elements
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFD6A94C),
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Text(
+                            "СОХРАНИТЬ КЛИЕНТУ",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+        }
 
         Text(
             "ДОБАВИТЬ РУНУ",

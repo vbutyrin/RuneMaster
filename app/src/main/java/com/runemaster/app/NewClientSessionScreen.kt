@@ -27,7 +27,8 @@ fun NewClientSessionScreen(
     runeLookup: (String) -> RuneInfo?,
     onBack: () -> Unit,
     onRune: (RuneInfo, ClientSessionDraft?) -> Unit,
-    onFormula: (ClientSessionDraft) -> Unit
+    onFormula: (ClientSessionDraft) -> Unit,
+    onQuickSave: (ClientSessionDraft) -> Unit
 ) {
     var clientName by remember {
         mutableStateOf(
@@ -538,6 +539,27 @@ fun NewClientSessionScreen(
                                         Modifier.height(
                                             8.dp
                                         )
+                                    )
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            onQuickSave(
+                                                currentDraft(
+                                                    input
+                                                )
+                                            )
+                                        },
+                                        modifier =
+                                            Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "СОХРАНИТЬ БЕЗ РЕДАКТИРОВАНИЯ",
+                                            fontSize = 10.sp
+                                        )
+                                    }
+
+                                    Spacer(
+                                        Modifier.height(5.dp)
                                     )
 
                                     Button(

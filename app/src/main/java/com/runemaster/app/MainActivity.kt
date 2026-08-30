@@ -1,5 +1,10 @@
 package com.runemaster.app
 
+import com.runemaster.app.semantic.RuneSolutionEngine
+
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.runemaster.app.professional.ProfessionalViewModel
+
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
@@ -1531,6 +1536,9 @@ private fun RuneBackground(content: @Composable () -> Unit) {
 
 @Composable
 fun RuneMasterApp() {
+    val professionalViewModel:
+        ProfessionalViewModel = viewModel()
+
     var screen by remember {
         mutableStateOf<Screen>(Screen.Home)
     }
@@ -1600,9 +1608,78 @@ fun RuneMasterApp() {
         )
         is Screen.FormulaEditor -> RuneEditorScreen(
             onBack = {
-                screen = Screen.Home
+                screen =
+                    current.clientDraft?.let {
+                        Screen.ClientSession(it)
+                    } ?: Screen.Home
             },
-            initialFormula = current.formula
+            initialFormula = current.formula,
+            clientDraft = current.clientDraft,
+            onSaveClient = { draft, editorRunes ->
+
+                val composition =
+                    serializeEditorRunes(
+                        editorRunes
+                    )
+
+                val analysis =
+                    RuneSolutionEngine
+                        .solve(draft.problem)
+
+                val analysisText =
+                    buildString {
+                        append("Сферы: ")
+                        append(
+                            analysis.analysis
+                                .domains
+                                .joinToString()
+                        )
+
+                        append("\nПроблемы: ")
+                        append(
+                            analysis.analysis
+                                .problems
+                                .joinToString()
+                        )
+
+                        append("\nЦели: ")
+                        append(
+                            analysis.analysis
+                                .intents
+                                .joinToString()
+                        )
+                    }
+
+                professionalViewModel
+                    .saveCompleteSession(
+                        clientName =
+                            draft.clientName,
+                        clientNotes =
+                            draft.clientNotes,
+                        request =
+                            draft.problem,
+                        analysis =
+                            analysisText,
+                        practitionerNotes =
+                            draft.practitionerNotes,
+                        formulaTitle =
+                            draft.formula.title,
+                        intention =
+                            draft.formula.intention,
+                        primaryRune =
+                            draft.formula.primaryRune,
+                        supportingRunes =
+                            draft.formula.supportingRunes,
+                        formulaExplanation =
+                            "Индивидуальная формула, отредактированная в Rune Editor",
+                        compositionJson =
+                            composition,
+                        onSaved = {
+                            screen =
+                                Screen.Journal
+                        }
+                    )
+            }
         )
 
         Screen.Candles -> CandlesScreen(
