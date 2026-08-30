@@ -3,16 +3,37 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- soft gold medallion -->
     <path
-        android:fillColor="#080706"
-        android:pathData="M0,0h108v108h-108z"/>
+        android:fillColor="#B88932"
+        android:pathData="M54,15A39,39 0,1 1,53.9 15z"/>
+
     <path
-        android:fillColor="#D6A94C"
-        android:pathData="M51,15h6v78h-6z"/>
+        android:fillColor="#17120B"
+        android:pathData="M54,19A35,35 0,1 1,53.9 19z"/>
+
     <path
-        android:fillColor="#D6A94C"
-        android:pathData="M54,20L82,39L54,55z"/>
+        android:fillColor="#E4BB5B"
+        android:pathData="M54,25A29,29 0,1 1,53.9 25z"/>
+
     <path
-        android:fillColor="#F6DA8A"
-        android:pathData="M54,53L79,69L54,81z"/>
+        android:fillColor="#090807"
+        android:pathData="M54,28A26,26 0,1 1,53.9 28z"/>
+
+    <!-- central Algiz-style mark -->
+    <path
+        android:strokeColor="#F5D982"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,72L54,39M54,48L40,35M54,48L68,35"/>
+
+    <!-- subtle lower diamond -->
+    <path
+        android:strokeColor="#C99A40"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,72L46,79L54,86L62,79z"/>
+
 </vector>

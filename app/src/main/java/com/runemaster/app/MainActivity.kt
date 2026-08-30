@@ -1,6 +1,10 @@
 package com.runemaster.app
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
@@ -381,6 +385,125 @@ private val problemDictionary = listOf(
     )
 )
 
+
+data class QuickProblem(
+    val label: String,
+    val query: String
+)
+
+private val quickProblems = listOf(
+    QuickProblem("💰 Не хватает денег", "не хватает денег хочу улучшить финансовое положение"),
+    QuickProblem("💼 Найти работу", "хочу найти новую подходящую работу"),
+    QuickProblem("📈 Карьерный рост", "хочу продвижение по службе и рост дохода"),
+    QuickProblem("🏠 Укрепить семью", "хочу укрепить семью и улучшить отношения"),
+    QuickProblem("⚡ Ссоры дома", "постоянные конфликты и ссоры в семье"),
+    QuickProblem("❤️ Найти партнёра", "хочу встретить партнера для серьезных отношений"),
+    QuickProblem("💔 Расставание", "переживаю расставание хочу перейти к новому этапу"),
+    QuickProblem("🛡 Границы", "нужно укрепить личные границы"),
+    QuickProblem("🗣 Начальство", "проблемы и конфликт с руководством"),
+    QuickProblem("🏪 Бизнес", "хочу развивать бизнес увеличить клиентов и доход"),
+    QuickProblem("📚 Учёба", "нужно успешно учиться и систематизировать знания"),
+    QuickProblem("🔦 Нет ясности", "не понимаю ситуацию нужна ясность для решения")
+)
+
+private val synonymGroups = mapOf(
+    "partner" to listOf(
+        "жених","суженый","суженный","будущий муж","мужчина",
+        "парень","партнер","партнёр","любимый","вторая половина",
+        "спутник жизни","женщина","девушка","невеста","будущая жена"
+    ),
+    "money" to listOf(
+        "деньги","финансы","доход","зарплата","бабки","денежки",
+        "наличка","заработок","прибыль","капитал","ресурс"
+    ),
+    "crisis" to listOf(
+        "проблема","проблемы","беда","кошмар","капец","полный капец",
+        "жопа","полная жопа","пипец","все плохо","всё плохо",
+        "катастрофа","все разваливается","всё разваливается"
+    ),
+    "job" to listOf(
+        "работа","работу","работы","вакансия","место","трудоустройство",
+        "служба","должность","карьера"
+    ),
+    "conflict" to listOf(
+        "ссора","ссоры","ругаемся","ругаются","конфликт",
+        "скандал","скандалы","грызня","не понимаем друг друга",
+        "задолбал","задолбала","достал","достала","сжирает"
+    ),
+    "family" to listOf(
+        "семья","семье","семьи","дом","дома","муж","жена",
+        "супруг","супруга","родные","близкие"
+    )
+)
+
+private fun expandSynonyms(text: String): String {
+    val normalized = normalizeText(text)
+    val additions = mutableListOf<String>()
+
+    synonymGroups.forEach { (canonical, words) ->
+        if (words.any { normalized.contains(normalizeText(it)) }) {
+            additions += canonical
+            additions += words
+        }
+    }
+
+    return normalized + " " + additions.joinToString(" ")
+}
+
+private val negations = listOf(
+    "не хочу",
+    "не нужно",
+    "не надо",
+    "не желаю",
+    "не собираюсь"
+)
+
+private fun containsNegatedGoal(text: String, phrase: String): Boolean {
+    val t = normalizeText(text)
+    val p = normalizeText(phrase)
+
+    return negations.any { neg ->
+        val pos = t.indexOf(neg)
+        val target = t.indexOf(p)
+        pos >= 0 && target >= pos && target - pos < 45
+    }
+}
+
+private fun contextBoost(
+    text: String,
+    concept: ProblemConcept
+): Int {
+    val t = expandSynonyms(text)
+
+    var score = 0
+
+    when (concept.domain) {
+        "Финансы" ->
+            if (listOf("деньг","финанс","зарплат","долг","кредит","прибыл","money")
+                    .any { t.contains(it) }) score += 18
+
+        "Работа", "Карьера" ->
+            if (listOf("работ","началь","ваканс","карьер","должност","job")
+                    .any { t.contains(it) }) score += 18
+
+        "Семья" ->
+            if (listOf("сем","дом","муж","жен","family")
+                    .any { t.contains(it) }) score += 18
+
+        "Отношения" ->
+            if (listOf("отнош","люб","партнер","партнёр","жених","сужен","partner")
+                    .any { t.contains(it) }) score += 18
+    }
+
+    if (concept.id.contains("conflict") &&
+        listOf("ссор","конфликт","руга","скандал","задолб","достал","сжира","conflict")
+            .any { t.contains(it) }
+    ) score += 22
+
+    return score
+}
+
+
 private fun normalizeText(value: String): String {
     return value
         .lowercase()
@@ -429,10 +552,21 @@ private fun phraseScore(text: String, phrase: String): Int {
 
 private fun analyzeRequest(text: String): AnalysisResult {
     val normalized = normalizeText(text)
+    val expanded = expandSynonyms(text)
 
     val detected = problemDictionary.mapNotNull { concept ->
         val scored = concept.phrases
-            .map { it to phraseScore(normalized, it) }
+            .map { phrase ->
+                var score = phraseScore(expanded, phrase)
+
+                score += contextBoost(text, concept)
+
+                if (containsNegatedGoal(normalized, phrase)) {
+                    score -= 55
+                }
+
+                phrase to score.coerceIn(0, 100)
+            }
             .filter { it.second >= 55 }
             .sortedByDescending { it.second }
 
@@ -440,9 +574,11 @@ private fun analyzeRequest(text: String): AnalysisResult {
         else DetectedProblem(
             concept = concept,
             confidence = scored.first().second,
-            matchedWords = scored.take(3).map { it.first }
+            matchedWords = scored.take(4).map { it.first }
         )
-    }.sortedWith(
+    }
+    .distinctBy { it.concept.id }
+    .sortedWith(
         compareByDescending<DetectedProblem> { it.confidence }
             .thenBy { it.concept.domain }
     )
@@ -1966,6 +2102,63 @@ private val formulaTemplates = listOf(
         "Fehu помещена в центр как тема материальных ресурсов. Jera указывает на постепенный результат, Tiwaz — дисциплинированное действие, Sowilo — ясное направление.",
         "Сосредотачиваюсь на разумном управлении ресурсами и действиях, способных постепенно улучшить материальное положение."
     ),
+
+    FormulaTemplate(
+        "Поиск серьёзных отношений",
+        "Отношения • знакомство • взаимность",
+        "GEBO",
+        listOf("RAIDHO", "EHWAZ", "WUNJO"),
+        "Gebo — центральная тема взаимного партнёрства. Raidho — движение к новым возможностям и знакомствам. Ehwaz — развитие через взаимное сотрудничество. Wunjo — желаемое качество отношений.",
+        "Создаю в своей жизни пространство для добровольного взаимного знакомства и зрелых отношений. Я замечаю подходящие возможности, проявляю себя открыто и сохраняю уважение к свободному выбору каждого человека."
+    ),
+    FormulaTemplate(
+        "Выход из семейного конфликта",
+        "Семья • коммуникация • границы",
+        "ANSUZ",
+        listOf("GEBO", "ALGIZ", "WUNJO", "OTHALA"),
+        "Ansuz выбран как центральная функция разговора и понимания. Gebo обозначает взаимность. Algiz — личные границы. Wunjo — ориентир на согласие. Othala связывает задачу с домом и семейной основой.",
+        "Направляю внимание на ясное и уважительное общение. Я обозначаю свои границы без ненужной конфронтации, слышу другую сторону и выбираю действия, которые способны поддерживать взаимность и устойчивость семьи."
+    ),
+    FormulaTemplate(
+        "Развитие бизнеса и клиентского потока",
+        "Бизнес • коммуникация • результат",
+        "FEHU",
+        listOf("ANSUZ", "RAIDHO", "JERA", "SOWILO"),
+        "Fehu отвечает за материальный аспект задачи. Ansuz — коммуникация с клиентами. Raidho — движение процессов. Jera — накопительный результат. Sowilo — ясная цель.",
+        "Направляю работу на создание реальной ценности для клиентов, ясную коммуникацию и последовательное развитие дела. Материальный результат рассматриваю как следствие устойчивых, проверяемых действий и разумного управления ресурсами."
+    ),
+    FormulaTemplate(
+        "Укрепление личных границ",
+        "Границы • ясность • личная позиция",
+        "ALGIZ",
+        listOf("MANNAZ", "ANSUZ", "TIWAZ"),
+        "Algiz — центральная функция границ. Mannaz удерживает фокус на позиции самого человека. Ansuz помогает ясно эти границы обозначать. Tiwaz — последовательно действовать согласно выбранной позиции.",
+        "Я ясно определяю допустимые для себя границы, спокойно обозначаю их словами и последовательно поддерживаю своими действиями."
+    ),
+    FormulaTemplate(
+        "Профессиональное собеседование",
+        "Работа • речь • компетентность",
+        "ANSUZ",
+        listOf("KENAZ", "TIWAZ", "FEHU"),
+        "Ansuz — коммуникация на собеседовании. Kenaz — способность показать навыки. Tiwaz — собранность и цель. Fehu — материальная сторона предложения.",
+        "Готовлюсь ясно рассказать о своём опыте, показать реальные компетенции, задавать необходимые вопросы и оценивать предложение с учётом профессиональных и материальных условий."
+    ),
+    FormulaTemplate(
+        "Переход после расставания",
+        "Отношения • переход • устойчивость",
+        "DAGAZ",
+        listOf("EIHWAZ", "MANNAZ", "WUNJO"),
+        "Dagaz задаёт переход к другому состоянию. Eihwaz — устойчивость в процессе перемены. Mannaz возвращает внимание к собственной позиции. Wunjo обозначает ориентир на восстановление удовлетворённости жизнью.",
+        "Признаю завершившийся или изменившийся этап и направляю внимание на собственную устойчивость, реальные потребности и постепенное формирование нового состояния жизни."
+    ),
+    FormulaTemplate(
+        "Обучение и экзамены",
+        "Учёба • понимание • дисциплина",
+        "KENAZ",
+        listOf("ANSUZ", "JERA", "TIWAZ"),
+        "Kenaz — понимание и навык. Ansuz — получение и воспроизведение знания. Jera — результат систематической подготовки. Tiwaz — дисциплина и направление.",
+        "Последовательно готовлюсь, стремлюсь понимать материал, а не только запоминать его, ясно формулирую ответы и направляю усилия на проверяемый результат."
+    ),
     FormulaTemplate(
         "Ясность в сложной ситуации",
         "Решение • неизвестные факторы • понимание",
@@ -2144,6 +2337,50 @@ private fun ConstructorScreen(onBack: () -> Unit) {
             AppHeader("КОНСТРУКТОР", "Сначала цель, затем функция каждой руны")
 
             Spacer(Modifier.height(18.dp))
+
+            Text(
+                "БЫСТРЫЙ ВЫБОР",
+                color = Gold,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+
+            Spacer(Modifier.height(7.dp))
+
+            Column {
+                quickProblems.chunked(2).forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        row.forEach { quick ->
+                            AssistChip(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    intention =
+                                        if (intention.isBlank()) quick.query
+                                        else intention + "; " + quick.query
+
+                                    selectedPrimary = null
+                                    supports = emptyList()
+                                },
+                                label = {
+                                    Text(
+                                        quick.label,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            )
+                        }
+
+                        if (row.size == 1) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(15.dp))
 
             OutlinedTextField(
                 value = intention,
@@ -2637,7 +2874,8 @@ private fun CandlesScreen(onBack: () -> Unit) {
 data class SourceEntry(
     val group: String,
     val title: String,
-    val description: String
+    val description: String,
+    val url: String? = null
 )
 
 private val sourceEntries = listOf(
@@ -2649,27 +2887,32 @@ private val sourceEntries = listOf(
     SourceEntry(
         "ИСТОРИЧЕСКИЕ ПЕРВОИСТОЧНИКИ",
         "Англосаксонская руническая поэма",
-        "Один из ключевых текстовых источников для традиционных образов отдельных рун. Англосаксонский футорк не тождественен 24-знаковому Старшему футарку."
+        "Один из ключевых текстовых источников для традиционных образов отдельных рун. Англосаксонский футорк не тождественен 24-знаковому Старшему футарку.",
+        "https://en.wikisource.org/wiki/Rune_poems"
     ),
     SourceEntry(
         "ИСТОРИЧЕСКИЕ ПЕРВОИСТОЧНИКИ",
         "Норвежская руническая поэма",
-        "Средневековый источник по образам младшего футарка. Используется сравнительно и не доказывает современные эзотерические значения."
+        "Средневековый источник по образам младшего футарка. Используется сравнительно и не доказывает современные эзотерические значения.",
+        "https://en.wikisource.org/wiki/Rune_poems"
     ),
     SourceEntry(
         "ИСТОРИЧЕСКИЕ ПЕРВОИСТОЧНИКИ",
         "Исландская руническая поэма",
-        "Средневековая традиция образов рун младшего футарка; полезна для сравнительного анализа."
+        "Средневековая традиция образов рун младшего футарка; полезна для сравнительного анализа.",
+        "https://en.wikisource.org/wiki/Rune_poems"
     ),
     SourceEntry(
         "АКАДЕМИЧЕСКИЙ УРОВЕНЬ",
         "Michael P. Barnes — Runes: A Handbook",
-        "Исследование истории рунических письменностей, надписей и принципов их интерпретации."
+        "Исследование истории рунических письменностей, надписей и принципов их интерпретации.",
+        "https://books.google.com/books?q=Michael+P+Barnes+Runes+A+Handbook"
     ),
     SourceEntry(
         "АКАДЕМИЧЕСКИЙ УРОВЕНЬ",
         "R. I. Page — Runes",
-        "Введение в историческую рунологию и археологический материал."
+        "Введение в историческую рунологию и археологический материал.",
+        "https://books.google.com/books?q=R+I+Page+Runes"
     ),
     SourceEntry(
         "СОВРЕМЕННАЯ ПРАКТИКА",
@@ -2685,6 +2928,8 @@ private val sourceEntries = listOf(
 
 @Composable
 private fun SourcesScreen(onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     LazyColumn(
         Modifier
             .fillMaxSize()
@@ -2748,6 +2993,26 @@ private fun SourcesScreen(onBack: () -> Unit) {
                             fontSize = 13.sp,
                             lineHeight = 19.sp
                         )
+
+                        source.url?.let { url ->
+                            Spacer(Modifier.height(10.dp))
+
+                            TextButton(
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            Uri.parse(url)
+                                        )
+                                    )
+                                }
+                            ) {
+                                Text(
+                                    "ОТКРЫТЬ В БРАУЗЕРЕ ↗",
+                                    color = Gold
+                                )
+                            }
+                        }
                     }
                 }
             }
