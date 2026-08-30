@@ -1360,7 +1360,7 @@ fun RuneMasterApp() {
         Screen.Formulas -> FormulasScreen(
             onBack = { screen = Screen.Home }
         )
-        Screen.Constructor -> ConstructorScreen(
+        Screen.Constructor -> RuneEditorScreen(
             onBack = { screen = Screen.Home }
         )
         Screen.Candles -> CandlesScreen(
