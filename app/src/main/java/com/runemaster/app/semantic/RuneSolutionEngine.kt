@@ -297,48 +297,56 @@ object RuneSolutionEngine {
         runes: List<RuneRecommendation>
     ): List<FormulaSuggestion> {
 
-        if (runes.isEmpty())
-            return emptyList()
+        if (runes.isEmpty()) return emptyList()
 
         return listOf(
-            formula(
-                "КОМПАКТНЫЙ",
-                runes,
-                3
-            ),
-
-            formula(
-                "СБАЛАНСИРОВАННЫЙ",
-                runes,
-                5
-            ),
-
-            formula(
-                "РАСШИРЕННЫЙ",
-                runes,
-                7
-            )
+            smartFormula("КОМПАКТНЫЙ", runes, 3),
+            smartFormula("СБАЛАНСИРОВАННЫЙ", runes, 5),
+            smartFormula("РАСШИРЕННЫЙ", runes, 7)
         )
     }
 
-    private fun formula(
+    private fun smartFormula(
         title: String,
         runes: List<RuneRecommendation>,
-        count: Int
+        maxCount: Int
     ): FormulaSuggestion {
 
-        val chosen =
-            runes.take(count)
+        val primary = runes.first()
+        val chosen = mutableListOf(primary)
+        val covered = primary.functions.toMutableSet()
+
+        runes.drop(1).forEach { candidate ->
+            if (chosen.size >= maxCount) return@forEach
+
+            val addsSomething =
+                candidate.functions.any { it !in covered }
+
+            if (addsSomething) {
+                chosen += candidate
+                covered += candidate.functions
+            }
+        }
+
+        if (chosen.size < maxCount) {
+            runes.forEach { candidate ->
+                if (
+                    chosen.size < maxCount &&
+                    candidate !in chosen
+                ) {
+                    chosen += candidate
+                }
+            }
+        }
 
         return FormulaSuggestion(
             type = title,
-            primary = chosen.firstOrNull(),
+            primary = primary,
             supporting = chosen.drop(1),
             explanation =
-                "Главная руна выбрана по максимальному " +
-                "пересечению необходимых функций; " +
-                "остальные закрывают дополнительные " +
-                "функции запроса."
+                "Главная руна закрывает центральные функции запроса. " +
+                "Вспомогательные подобраны так, чтобы добавлять разные " +
+                "функции и по возможности не дублировать друг друга."
         )
     }
 
