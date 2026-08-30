@@ -148,6 +148,77 @@ class ProfessionalViewModel(
         }
     }
 
+    fun saveCompleteSession(
+        clientName: String,
+        clientNotes: String,
+        request: String,
+        analysis: String,
+        practitionerNotes: String,
+        formulaTitle: String,
+        intention: String,
+        primaryRune: String,
+        supportingRunes: List<String>,
+        formulaExplanation: String,
+        compositionJson: String,
+        onSaved: () -> Unit
+    ) {
+        if (
+            clientName.isBlank() ||
+            request.isBlank()
+        ) return
+
+        viewModelScope.launch {
+
+            val clientId =
+                dao.insertClient(
+                    ClientEntity(
+                        displayName =
+                            clientName.trim(),
+                        notes =
+                            clientNotes.trim()
+                    )
+                )
+
+            val formulaId =
+                dao.insertFormula(
+                    FormulaEntity(
+                        clientId =
+                            clientId,
+                        title =
+                            formulaTitle,
+                        intention =
+                            intention,
+                        primaryRune =
+                            primaryRune,
+                        supportingRunes =
+                            supportingRunes
+                                .joinToString(","),
+                        explanation =
+                            formulaExplanation,
+                        compositionJson =
+                            compositionJson
+                    )
+                )
+
+            dao.insertJournal(
+                JournalEntity(
+                    clientId =
+                        clientId,
+                    request =
+                        request.trim(),
+                    analysis =
+                        analysis,
+                    formulaId =
+                        formulaId,
+                    practitionerNotes =
+                        practitionerNotes.trim()
+                )
+            )
+
+            onSaved()
+        }
+    }
+
     fun exportBackup(
         onReady: (Intent) -> Unit
     ) {

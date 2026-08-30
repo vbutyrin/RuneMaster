@@ -49,7 +49,8 @@ private enum class WorkspaceTab {
 
 @Composable
 fun ProfessionalWorkspaceScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNewClientSession: () -> Unit
 ) {
     val vm:
         ProfessionalViewModel =
@@ -275,7 +276,7 @@ fun ProfessionalWorkspaceScreen(
                     modifier =
                         Modifier.fillMaxWidth(),
                     onClick = {
-                        showNewClient = true
+                        onNewClientSession()
                     },
                     colors =
                         ButtonDefaults
