@@ -1,12 +1,5 @@
 package com.runemaster.app
 
-import com.runemaster.app.semantic.SemanticEngine
-import com.runemaster.app.semantic.RuneSolutionEngine
-import com.runemaster.app.semantic.Domain
-import com.runemaster.app.semantic.Intent as SemanticIntent
-import com.runemaster.app.semantic.ProblemType
-import com.runemaster.app.semantic.RuneFunction
-
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
@@ -1559,9 +1552,7 @@ fun RuneMasterApp() {
         )
         Screen.Favorites -> FavoritesScreen(
             onBack = { screen = Screen.Home },
-            onRune = { rune: RuneInfo ->
-                screen = Screen.RuneDetail(rune)
-            }
+            onRune = { screen = Screen.RuneDetail(it) }
         )
         is Screen.Placeholder -> PlaceholderScreen(
             current.title,
@@ -1938,259 +1929,153 @@ private fun AnalysisScreen(
     onBack: () -> Unit,
     onRune: (RuneInfo) -> Unit
 ) {
-    val solution = remember(text) {
-        RuneSolutionEngine.solve(text)
-    }
-
-    val a = solution.analysis
-
-    fun domainName(value: Domain): String =
-        when (value) {
-            Domain.FAMILY -> "Семья"
-            Domain.RELATIONSHIP -> "Отношения"
-            Domain.LOVE -> "Любовь / поиск партнёра"
-            Domain.FINANCE -> "Финансы"
-            Domain.WORK -> "Работа"
-            Domain.CAREER -> "Карьера"
-            Domain.BUSINESS -> "Бизнес"
-            Domain.DOCUMENTS -> "Документы / договоры"
-            Domain.EDUCATION -> "Обучение"
-            Domain.HOME -> "Дом / жильё"
-            Domain.SOCIAL -> "Окружение"
-            Domain.EMOTIONAL -> "Эмоциональная сфера"
-            Domain.CREATIVITY -> "Творчество"
-            Domain.TRAVEL -> "Дорога / поездки"
-            Domain.CHANGE -> "Перемены"
-            Domain.PROTECTION -> "Защита / границы"
-            Domain.LEGAL -> "Юридическая сфера"
-            else -> "Сфера не определена"
-        }
-
-    fun intentName(value: SemanticIntent): String =
-        when (value) {
-            SemanticIntent.GET -> "получить результат"
-            SemanticIntent.FIND -> "найти"
-            SemanticIntent.INCREASE -> "увеличить"
-            SemanticIntent.DECREASE -> "уменьшить"
-            SemanticIntent.KEEP -> "сохранить"
-            SemanticIntent.RESTORE -> "восстановить"
-            SemanticIntent.IMPROVE -> "улучшить"
-            SemanticIntent.END -> "завершить"
-            SemanticIntent.REMOVE -> "устранить"
-            SemanticIntent.PROTECT -> "защитить"
-            SemanticIntent.CLARIFY -> "прояснить"
-            SemanticIntent.ACCELERATE -> "ускорить"
-            SemanticIntent.CHANGE -> "изменить"
-            SemanticIntent.AGREE -> "достичь согласования"
-            SemanticIntent.COMMUNICATE -> "наладить коммуникацию"
-            SemanticIntent.DEVELOP -> "развить"
-            SemanticIntent.STABILIZE -> "стабилизировать"
-            else -> "цель пока не определена"
-        }
-
-    fun problemName(value: ProblemType): String =
-        when (value) {
-            ProblemType.LACK -> "недостаток"
-            ProblemType.LOSS -> "потеря"
-            ProblemType.CONFLICT -> "конфликт"
-            ProblemType.DELAY -> "задержка"
-            ProblemType.BLOCK -> "препятствие"
-            ProblemType.INSTABILITY -> "нестабильность"
-            ProblemType.EXCESS -> "избыточность / перерасход"
-            ProblemType.UNCERTAINTY -> "неопределённость"
-            ProblemType.REJECTION -> "отказ / несогласие"
-            ProblemType.STAGNATION -> "застой"
-            ProblemType.SEPARATION -> "расставание / разрыв"
-            ProblemType.COMMUNICATION -> "проблема коммуникации"
-            ProblemType.FEAR -> "страх / опасение"
-            ProblemType.PRESSURE -> "давление"
-            ProblemType.FAILURE -> "неудача"
-            ProblemType.CHANGE -> "изменение"
-            else -> "проблема требует уточнения"
-        }
-
-    fun functionName(value: RuneFunction): String =
-        when (value) {
-            RuneFunction.RESOURCE -> "Ресурс"
-            RuneFunction.COMMUNICATION -> "Коммуникация"
-            RuneFunction.AGREEMENT -> "Согласование"
-            RuneFunction.MOVEMENT -> "Движение процесса"
-            RuneFunction.DIRECTION -> "Направление"
-            RuneFunction.RESULT -> "Результат"
-            RuneFunction.GROWTH -> "Развитие"
-            RuneFunction.STABILITY -> "Устойчивость"
-            RuneFunction.BOUNDARY -> "Границы"
-            RuneFunction.CLARITY -> "Ясность"
-            RuneFunction.RELATIONSHIP -> "Взаимодействие"
-            RuneFunction.HARMONY -> "Гармонизация"
-            RuneFunction.TRANSITION -> "Переход"
-            RuneFunction.ENDURANCE -> "Стойкость"
-            RuneFunction.PERSON -> "Позиция человека"
-            RuneFunction.EMOTION -> "Эмоциональная составляющая"
-            else -> "Неопределённая функция"
-        }
+    val result = remember(text) { analyzeRequestV2(text) }
+    val recommendations = remember(result) { recommendedRunes(result) }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(Bg)
             .padding(horizontal = 18.dp),
-        contentPadding = PaddingValues(bottom = 45.dp)
+        contentPadding = PaddingValues(bottom = 40.dp)
     ) {
         item {
             TextButton(onClick = onBack) {
                 Text("‹ ГЛАВНАЯ", color = Gold)
             }
 
-            AppHeader(
-                "АНАЛИЗ ЗАПРОСА",
-                "Semantic Engine 2.0"
-            )
+            AppHeader("АНАЛИЗ ЗАПРОСА", "Проблема → функции → подходящие руны")
 
-            Spacer(Modifier.height(17.dp))
+            Spacer(Modifier.height(18.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = CardBg
-                )
+                colors = CardDefaults.cardColors(containerColor = CardBg),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(Modifier.padding(17.dp)) {
+                Column(Modifier.padding(18.dp)) {
                     Text(
-                        "ЗАПРОС",
+                        "ИСХОДНЫЙ ЗАПРОС",
                         color = Gold,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        "«$text»",
-                        color = Text,
-                        lineHeight = 21.sp
-                    )
-
-                    Spacer(Modifier.height(10.dp))
-
-                    LinearProgressIndicator(
-                        progress = { a.confidence },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Gold,
-                        trackColor = Gold.copy(alpha = .12f)
-                    )
-
-                    Text(
-                        "Уверенность разбора: ${(a.confidence * 100).toInt()}%",
-                        color = Muted,
-                        fontSize = 11.sp
-                    )
+                    Spacer(Modifier.height(7.dp))
+                    Text("«$text»", color = Text, lineHeight = 22.sp)
                 }
-            }
-
-            Spacer(Modifier.height(17.dp))
-
-            Text(
-                "КАК ПРОГРАММА ПОНЯЛА СИТУАЦИЮ",
-                color = Gold,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(7.dp))
-
-            AnalysisSection(
-                "Сферы",
-                a.domains.joinToString(" • ") { domainName(it) }
-            )
-
-            AnalysisSection(
-                "Проблемы",
-                a.problems.joinToString(" • ") { problemName(it) }
-            )
-
-            AnalysisSection(
-                "Желаемые действия",
-                a.intents.joinToString(" • ") { intentName(it) }
-            )
-
-            if (a.entities.isNotEmpty()) {
-                AnalysisSection(
-                    "Распознанные объекты",
-                    a.entities.joinToString(" • ")
-                )
-            }
-
-            if (a.negatedTokens.isNotEmpty()) {
-                AnalysisSection(
-                    "Обнаружено после отрицаний",
-                    a.negatedTokens.joinToString(", ")
-                )
             }
 
             Spacer(Modifier.height(18.dp))
 
-            Text(
-                "НЕОБХОДИМЫЕ ФУНКЦИИ",
-                color = Gold,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(7.dp))
-
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF151A14)
-                )
-            ) {
-                Text(
-                    solution.requiredFunctions
-                        .joinToString(" • ") { functionName(it) },
-                    modifier = Modifier.padding(15.dp),
-                    color = Text,
-                    lineHeight = 20.sp
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Text(
-                "РУНЫ ПО ФУНКЦИЯМ ЗАПРОСА",
-                color = Gold,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(7.dp))
-
-            solution.runes.take(8).forEachIndexed { index, recommendation ->
-                val rune = runes.find {
-                    it.name == recommendation.rune
+            if (result.problems.isEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CardBg)
+                ) {
+                    Column(Modifier.padding(18.dp)) {
+                        Text(
+                            "Запрос пока не распознан достаточно точно.",
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Попробуйте назвать сферу и желаемый результат, например: «хочу найти новую работу», «постоянные ссоры в семье и не хватает денег» или «хочу встретить мужчину для серьёзных отношений». Словарь будет постепенно расширяться.",
+                            color = Text,
+                            lineHeight = 21.sp
+                        )
+                    }
                 }
+            } else {
+                Text(
+                    "ОБНАРУЖЕННЫЕ ЗАДАЧИ",
+                    color = Gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
 
-                if (rune != null) {
+                Spacer(Modifier.height(8.dp))
+
+                result.problems.forEach { detected ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp)
+                            .padding(vertical = 5.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardBg)
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                detected.concept.title,
+                                color = GoldLight,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp
+                            )
+                            Text(
+                                detected.concept.domain,
+                                color = Gold,
+                                fontSize = 12.sp
+                            )
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                detected.concept.explanation,
+                                color = Text,
+                                lineHeight = 20.sp,
+                                fontSize = 14.sp
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Совпадение: ${detected.confidence}%",
+                                color = Muted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Text(
+                    "ПОДБОР РУН",
+                    color = Gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+
+                Text(
+                    "Рейтинг учитывает все распознанные задачи одновременно. Нажмите на руну, чтобы открыть её карточку.",
+                    color = Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(Modifier.height(9.dp))
+
+                recommendations.forEachIndexed { index, pair ->
+                    val rune = pair.first
+                    val roles = result.problems
+                        .filter { rune.name in it.concept.runeNames }
+                        .joinToString(" • ") { it.concept.title }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 5.dp)
                             .clickable { onRune(rune) },
                         colors = CardDefaults.cardColors(
-                            containerColor =
-                                if (index == 0)
-                                    Color(0xFF2A200E)
-                                else CardBg
+                            containerColor = if (index == 0)
+                                Color(0xFF251C0D) else CardBg
                         )
                     ) {
                         Row(
-                            Modifier.padding(15.dp),
+                            Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 rune.symbol,
                                 color = GoldLight,
-                                fontSize = 42.sp,
-                                modifier = Modifier.width(65.dp)
+                                fontSize = 45.sp,
+                                modifier = Modifier.width(66.dp)
                             )
 
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(
                                     if (index == 0)
                                         "${rune.name} • ОСНОВНОЙ КАНДИДАТ"
@@ -2200,152 +2085,363 @@ private fun AnalysisScreen(
                                 )
 
                                 Text(
-                                    recommendation.reason,
+                                    rune.russian,
+                                    color = Gold,
+                                    fontSize = 12.sp
+                                )
+
+                                Spacer(Modifier.height(5.dp))
+
+                                Text(
+                                    roles,
                                     color = Text,
                                     fontSize = 13.sp,
                                     lineHeight = 18.sp
                                 )
-
-                                Text(
-                                    "Функциональный рейтинг: ${recommendation.score}",
-                                    color = Muted,
-                                    fontSize = 10.sp
-                                )
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(24.dp))
 
-            Text(
-                "ВАРИАНТЫ ИНДИВИДУАЛЬНОЙ ФОРМУЛЫ",
-                color = Gold,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
+                Text(
+                    "ВАРИАНТЫ ФОРМУЛЫ",
+                    color = Gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
 
-            Text(
-                "Необязательно использовать максимальное количество рун. Компактный вариант обычно легче интерпретировать.",
-                color = Muted,
-                fontSize = 12.sp,
-                lineHeight = 17.sp
-            )
+                Text(
+                    "Программа предлагает несколько уровней сложности, а не автоматически складывает все найденные руны в один став.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
 
-            Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
 
-            solution.formulas.forEach { formula ->
+                generateFormulaVariants(result).forEach { formula ->
+                    var formulaOpen by remember(formula.title) {
+                        mutableStateOf(false)
+                    }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 5.dp)
+                            .clickable {
+                                formulaOpen = !formulaOpen
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = CardBg
+                        )
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                formula.title.uppercase(),
+                                color = GoldLight,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        formula.primary.symbol,
+                                        color = GoldLight,
+                                        fontSize = 42.sp
+                                    )
+                                    Text(
+                                        "ГЛАВНАЯ",
+                                        color = Gold,
+                                        fontSize = 9.sp
+                                    )
+                                }
+
+                                Spacer(Modifier.width(12.dp))
+
+                                formula.supports.forEach {
+                                    RuneChip(it.name)
+                                }
+                            }
+
+                            AnimatedVisibility(formulaOpen) {
+                                Column {
+                                    Spacer(Modifier.height(12.dp))
+
+                                    Text(
+                                        formula.rationale,
+                                        color = Text,
+                                        fontSize = 13.sp,
+                                        lineHeight = 20.sp
+                                    )
+
+                                    Spacer(Modifier.height(12.dp))
+
+                                    Text(
+                                        "${formula.primary.symbol} ${formula.primary.name}: центральная функция — ${formula.primary.keywords}.",
+                                        color = GoldLight,
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp
+                                    )
+
+                                    formula.supports.forEach { support ->
+                                        Text(
+                                            "${support.symbol} ${support.name}: ${support.practice}",
+                                            color = Text,
+                                            fontSize = 12.sp,
+                                            lineHeight = 18.sp,
+                                            modifier = Modifier.padding(top = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = CardBg
-                    )
+                        containerColor = Color(0xFF131B17)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(Modifier.padding(16.dp)) {
+                    Column(Modifier.padding(17.dp)) {
                         Text(
-                            formula.type,
+                            "КАК ИНТЕРПРЕТИРОВАТЬ РЕЗУЛЬТАТ",
                             color = GoldLight,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp
+                            fontSize = 12.sp
                         )
-
-                        Spacer(Modifier.height(9.dp))
-
-                        formula.primary?.let { primary ->
-                            val r = runes.find { it.name == primary.rune }
-
-                            if (r != null) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        r.symbol,
-                                        color = GoldLight,
-                                        fontSize = 38.sp,
-                                        modifier = Modifier.width(53.dp)
-                                    )
-                                    Column {
-                                        Text(
-                                            "${r.name} — ГЛАВНАЯ",
-                                            color = GoldLight,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            primary.reason,
-                                            color = Text,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        formula.supporting.forEach { support ->
-                            val r = runes.find { it.name == support.rune }
-
-                            if (r != null) {
-                                Row(
-                                    modifier = Modifier.padding(top = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        r.symbol,
-                                        color = Gold,
-                                        fontSize = 27.sp,
-                                        modifier = Modifier.width(53.dp)
-                                    )
-                                    Column {
-                                        Text(
-                                            r.name,
-                                            color = GoldLight,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            support.reason,
-                                            color = Muted,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-
+                        Spacer(Modifier.height(7.dp))
                         Text(
-                            formula.explanation,
-                            color = Muted,
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp
+                            "Первая руна является наиболее подходящим кандидатом на центральную функцию только по текущей модели запроса. Остальные руны не должны автоматически наноситься все вместе. Следующий модуль конструктора будет проверять функции, совместимость и избыточность формулы перед созданием става.",
+                            color = Text,
+                            lineHeight = 20.sp,
+                            fontSize = 13.sp
                         )
                     }
                 }
             }
+        }
+    }
+}
 
-            Spacer(Modifier.height(20.dp))
 
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF131B17)
-                )
+data class FormulaTemplate(
+    val title: String,
+    val purpose: String,
+    val primary: String,
+    val supports: List<String>,
+    val explanation: String,
+    val intention: String
+)
+
+private val formulaTemplates = listOf(
+    FormulaTemplate(
+        "Укрепление семейного взаимодействия",
+        "Семья • взаимность • коммуникация",
+        "GEBO",
+        listOf("ANSUZ", "BERKANO", "WUNJO", "OTHALA"),
+        "Gebo задаёт взаимность как центральную функцию. Ansuz относится к ясному общению, Berkano — развитию и заботе, Wunjo — желаемому состоянию согласия, Othala — дому и устойчивой семейной основе.",
+        "Пусть эта формула служит напоминанием о взаимном уважении, ясном разговоре, заботе и действиях, укрепляющих наш дом."
+    ),
+    FormulaTemplate(
+        "Поиск новой работы",
+        "Работа • движение • собеседование",
+        "RAIDHO",
+        listOf("ANSUZ", "FEHU", "TIWAZ", "JERA"),
+        "Raidho обозначает движение процесса. Ansuz — резюме, контакты и собеседования; Fehu — материальную сторону результата; Tiwaz — направленное действие; Jera — результат последовательных усилий.",
+        "Направляю внимание и действия на последовательный поиск подходящей работы, ясное общение и достойный материальный результат."
+    ),
+    FormulaTemplate(
+        "Карьерное продвижение",
+        "Карьера • компетентность • результат",
+        "TIWAZ",
+        listOf("ANSUZ", "SOWILO", "JERA"),
+        "Tiwaz — центральная функция целенаправленного продвижения. Ansuz поддерживает коммуникацию, Sowilo — ясность цели, Jera — накопительный результат работы.",
+        "Действую последовательно, проявляю компетентность и ясно обозначаю профессиональные цели."
+    ),
+    FormulaTemplate(
+        "Материальная устойчивость",
+        "Финансы • ресурсы • результат",
+        "FEHU",
+        listOf("JERA", "TIWAZ", "SOWILO"),
+        "Fehu помещена в центр как тема материальных ресурсов. Jera указывает на постепенный результат, Tiwaz — дисциплинированное действие, Sowilo — ясное направление.",
+        "Сосредотачиваюсь на разумном управлении ресурсами и действиях, способных постепенно улучшить материальное положение."
+    ),
+
+    FormulaTemplate(
+        "Поиск серьёзных отношений",
+        "Отношения • знакомство • взаимность",
+        "GEBO",
+        listOf("RAIDHO", "EHWAZ", "WUNJO"),
+        "Gebo — центральная тема взаимного партнёрства. Raidho — движение к новым возможностям и знакомствам. Ehwaz — развитие через взаимное сотрудничество. Wunjo — желаемое качество отношений.",
+        "Создаю в своей жизни пространство для добровольного взаимного знакомства и зрелых отношений. Я замечаю подходящие возможности, проявляю себя открыто и сохраняю уважение к свободному выбору каждого человека."
+    ),
+    FormulaTemplate(
+        "Выход из семейного конфликта",
+        "Семья • коммуникация • границы",
+        "ANSUZ",
+        listOf("GEBO", "ALGIZ", "WUNJO", "OTHALA"),
+        "Ansuz выбран как центральная функция разговора и понимания. Gebo обозначает взаимность. Algiz — личные границы. Wunjo — ориентир на согласие. Othala связывает задачу с домом и семейной основой.",
+        "Направляю внимание на ясное и уважительное общение. Я обозначаю свои границы без ненужной конфронтации, слышу другую сторону и выбираю действия, которые способны поддерживать взаимность и устойчивость семьи."
+    ),
+    FormulaTemplate(
+        "Развитие бизнеса и клиентского потока",
+        "Бизнес • коммуникация • результат",
+        "FEHU",
+        listOf("ANSUZ", "RAIDHO", "JERA", "SOWILO"),
+        "Fehu отвечает за материальный аспект задачи. Ansuz — коммуникация с клиентами. Raidho — движение процессов. Jera — накопительный результат. Sowilo — ясная цель.",
+        "Направляю работу на создание реальной ценности для клиентов, ясную коммуникацию и последовательное развитие дела. Материальный результат рассматриваю как следствие устойчивых, проверяемых действий и разумного управления ресурсами."
+    ),
+    FormulaTemplate(
+        "Укрепление личных границ",
+        "Границы • ясность • личная позиция",
+        "ALGIZ",
+        listOf("MANNAZ", "ANSUZ", "TIWAZ"),
+        "Algiz — центральная функция границ. Mannaz удерживает фокус на позиции самого человека. Ansuz помогает ясно эти границы обозначать. Tiwaz — последовательно действовать согласно выбранной позиции.",
+        "Я ясно определяю допустимые для себя границы, спокойно обозначаю их словами и последовательно поддерживаю своими действиями."
+    ),
+    FormulaTemplate(
+        "Профессиональное собеседование",
+        "Работа • речь • компетентность",
+        "ANSUZ",
+        listOf("KENAZ", "TIWAZ", "FEHU"),
+        "Ansuz — коммуникация на собеседовании. Kenaz — способность показать навыки. Tiwaz — собранность и цель. Fehu — материальная сторона предложения.",
+        "Готовлюсь ясно рассказать о своём опыте, показать реальные компетенции, задавать необходимые вопросы и оценивать предложение с учётом профессиональных и материальных условий."
+    ),
+    FormulaTemplate(
+        "Переход после расставания",
+        "Отношения • переход • устойчивость",
+        "DAGAZ",
+        listOf("EIHWAZ", "MANNAZ", "WUNJO"),
+        "Dagaz задаёт переход к другому состоянию. Eihwaz — устойчивость в процессе перемены. Mannaz возвращает внимание к собственной позиции. Wunjo обозначает ориентир на восстановление удовлетворённости жизнью.",
+        "Признаю завершившийся или изменившийся этап и направляю внимание на собственную устойчивость, реальные потребности и постепенное формирование нового состояния жизни."
+    ),
+    FormulaTemplate(
+        "Обучение и экзамены",
+        "Учёба • понимание • дисциплина",
+        "KENAZ",
+        listOf("ANSUZ", "JERA", "TIWAZ"),
+        "Kenaz — понимание и навык. Ansuz — получение и воспроизведение знания. Jera — результат систематической подготовки. Tiwaz — дисциплина и направление.",
+        "Последовательно готовлюсь, стремлюсь понимать материал, а не только запоминать его, ясно формулирую ответы и направляю усилия на проверяемый результат."
+    ),
+    FormulaTemplate(
+        "Ясность в сложной ситуации",
+        "Решение • неизвестные факторы • понимание",
+        "KENAZ",
+        listOf("ANSUZ", "PERTHRO", "MANNAZ"),
+        "Kenaz используется как центральная тема прояснения. Ansuz — получение и проверка информации, Perthro — неизвестные факторы, Mannaz — собственная позиция человека.",
+        "Стремлюсь увидеть ситуацию яснее, проверить информацию и принять решение с учётом реальных обстоятельств."
+    )
+)
+
+private fun runeByName(name: String): RuneInfo? =
+    runes.find { it.name == name }
+
+@Composable
+private fun RuneChip(name: String) {
+    val rune = runeByName(name) ?: return
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF231B0F)),
+        modifier = Modifier.padding(3.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(rune.symbol, color = GoldLight, fontSize = 30.sp)
+            Text(rune.name, color = Gold, fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+private fun FormulaCard(formula: FormulaTemplate) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 7.dp)
+            .clickable { expanded = !expanded },
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(17.dp)
+    ) {
+        Column(Modifier.padding(17.dp)) {
+            Text(
+                formula.title,
+                color = GoldLight,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(formula.purpose, color = Gold, fontSize = 12.sp)
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
             ) {
-                Column(Modifier.padding(16.dp)) {
+                RuneChip(formula.primary)
+                formula.supports.take(4).forEach { RuneChip(it) }
+            }
+
+            Spacer(Modifier.height(9.dp))
+            Text(
+                "Главная: ${formula.primary}",
+                color = GoldLight,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+            )
+
+            AnimatedVisibility(expanded) {
+                Column {
+                    Spacer(Modifier.height(13.dp))
                     Text(
-                        "ПРИНЦИП ПОДБОРА",
+                        "РОЛИ РУН",
                         color = Gold,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        formula.explanation,
+                        color = Text,
+                        lineHeight = 21.sp,
+                        fontSize = 14.sp
                     )
 
+                    Spacer(Modifier.height(13.dp))
+
                     Text(
-                        "Программа сначала определяет сферу, проблему и желаемое изменение; затем переводит их в функциональные задачи и лишь после этого ранжирует руны. Результат является интерпретацией современной рунической практики, а не гарантией события или воздействия на решения другого человека.",
+                        "ПРИМЕР ФОРМУЛИРОВКИ НАМЕРЕНИЯ",
+                        color = Gold,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        formula.intention,
                         color = Text,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp
+                        lineHeight = 21.sp,
+                        fontSize = 14.sp
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Нажмите ещё раз, чтобы свернуть.",
+                        color = Muted,
+                        fontSize = 11.sp
                     )
                 }
             }
@@ -2354,34 +2450,1085 @@ private fun AnalysisScreen(
 }
 
 @Composable
-private fun AnalysisSection(
-    title: String,
-    value: String
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = CardBg
-        )
+private fun FormulasScreen(onBack: () -> Unit) {
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
     ) {
-        Column(Modifier.padding(14.dp)) {
-            Text(
-                title.uppercase(),
-                color = Gold,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                value,
-                color = Text,
-                fontSize = 14.sp,
-                lineHeight = 19.sp
-            )
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+            AppHeader("СТАВЫ", "Главная руна + функциональная поддержка")
+
+            Spacer(Modifier.height(18.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF131B17)
+                )
+            ) {
+                Text(
+                    "Здесь «став» рассматривается как современная символическая практика. Исторические источники Старшего футарка не содержат единой системы современных ставов, оговоров и их гарантированных эффектов.",
+                    color = Text,
+                    modifier = Modifier.padding(16.dp),
+                    lineHeight = 20.sp,
+                    fontSize = 13.sp
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            formulaTemplates.forEach {
+                FormulaCard(it)
+            }
         }
     }
 }
+
+@Composable
+private fun ConstructorScreen(onBack: () -> Unit) {
+    var intention by remember { mutableStateOf("") }
+    var selectedPrimary by remember { mutableStateOf<RuneInfo?>(null) }
+    var supports by remember { mutableStateOf<List<RuneInfo>>(emptyList()) }
+
+    val suggested = remember(intention) {
+        if (intention.isBlank()) emptyList()
+        else recommendedRunes(analyzeRequestV2(intention)).map { it.first }
+    }
+
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader("КОНСТРУКТОР", "Сначала цель, затем функция каждой руны")
+
+            Spacer(Modifier.height(18.dp))
+
+            Text(
+                "БЫСТРЫЙ ВЫБОР",
+                color = Gold,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+
+            Spacer(Modifier.height(7.dp))
+
+            Column {
+                quickProblems.chunked(2).forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        row.forEach { quick ->
+                            AssistChip(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    intention =
+                                        if (intention.isBlank()) quick.query
+                                        else intention + "; " + quick.query
+
+                                    selectedPrimary = null
+                                    supports = emptyList()
+                                },
+                                label = {
+                                    Text(
+                                        quick.label,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            )
+                        }
+
+                        if (row.size == 1) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(15.dp))
+
+            OutlinedTextField(
+                value = intention,
+                onValueChange = {
+                    intention = it
+                    selectedPrimary = null
+                    supports = emptyList()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Какой результат нужен?") },
+                placeholder = {
+                    Text("Например: найти новую работу с лучшим доходом")
+                },
+                minLines = 3,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Gold,
+                    cursorColor = Gold
+                )
+            )
+
+            if (intention.isNotBlank()) {
+                Spacer(Modifier.height(18.dp))
+
+                if (suggested.isEmpty()) {
+                    Text(
+                        "Запрос пока не распознан. Используйте более конкретные слова о сфере и желаемом результате.",
+                        color = Text
+                    )
+                } else {
+                    Text(
+                        "ВЫБЕРИТЕ ГЛАВНУЮ РУНУ",
+                        color = Gold,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+
+                    suggested.take(5).forEach { rune ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable {
+                                    selectedPrimary = rune
+                                    supports = suggested
+                                        .filter { it != rune }
+                                        .take(3)
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor =
+                                    if (selectedPrimary == rune)
+                                        Color(0xFF30230D)
+                                    else CardBg
+                            )
+                        ) {
+                            Row(
+                                Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    rune.symbol,
+                                    color = GoldLight,
+                                    fontSize = 39.sp,
+                                    modifier = Modifier.width(62.dp)
+                                )
+                                Column {
+                                    Text(
+                                        "${rune.name} • ${rune.russian}",
+                                        color = GoldLight,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        rune.keywords,
+                                        color = Muted,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            selectedPrimary?.let { primary ->
+                Spacer(Modifier.height(22.dp))
+
+                Text(
+                    "СОБРАННАЯ ФОРМУЛА",
+                    color = Gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBg)
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            primary.symbol,
+                            color = GoldLight,
+                            fontSize = 75.sp
+                        )
+                        Text(
+                            "${primary.name} — ГЛАВНАЯ",
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Row {
+                            supports.forEach { RuneChip(it.name) }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        Text(
+                            "Главная функция: ${primary.keywords}.",
+                            color = Text,
+                            lineHeight = 20.sp
+                        )
+
+                        supports.forEach { rune ->
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                "${rune.symbol} ${rune.name}: ${rune.practice}",
+                                color = Text,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF131B17)
+                    )
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "ПРАКТИКА",
+                            color = Gold,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+
+                        Text(
+                            "1. Сформулируйте цель без обещания гарантированного результата и без требования контролировать волю другого человека.\n\n" +
+                            "2. Запишите, почему главная руна соответствует центральной функции задачи.\n\n" +
+                            "3. Нанесите выбранные знаки на бумагу или другой безопасный носитель. Главную руну можно визуально выделить размером или положением.\n\n" +
+                            "4. Проговорите намерение своими словами. Символическая «активация» в современных школах может пониматься как момент осознанного начала практики; исторически единого обязательного метода для таких ставов не установлено.\n\n" +
+                            "5. Определите заранее срок пересмотра результата. После завершения храните работу как запись или безопасно уничтожьте бумагу. Не требуется оставлять мусор в природе.",
+                            color = Text,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticsScreen(
+    onBack: () -> Unit,
+    onRune: (RuneInfo) -> Unit
+) {
+    var drawCount by remember { mutableStateOf(1) }
+    var drawn by remember { mutableStateOf<List<RuneInfo>>(emptyList()) }
+
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader("ДИАГНОСТИКА", "Символический расклад")
+
+            Spacer(Modifier.height(18.dp))
+
+            Text(
+                "ВЫБЕРИТЕ РАСКЛАД",
+                color = Gold,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(1, 3, 5).forEach { count ->
+                    Button(
+                        modifier = Modifier.weight(1f),
+                        onClick = { drawCount = count },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor =
+                                if (drawCount == count) Gold
+                                else CardBg,
+                            contentColor =
+                                if (drawCount == count) Color.Black
+                                else GoldLight
+                        )
+                    ) {
+                        Text("$count")
+                    }
+                }
+            }
+
+            val description = when (drawCount) {
+                1 -> "Одна руна: центральная тема вопроса."
+                3 -> "Три руны: ситуация → фактор → направление."
+                else -> "Пять рун: основа → препятствие → ресурс → действие → направление."
+            }
+
+            Text(description, color = Muted, fontSize = 13.sp)
+
+            Spacer(Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    drawn = runes.shuffled().take(drawCount)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Gold,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text("ВЫТЯНУТЬ РУНЫ", fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            drawn.forEachIndexed { index, rune ->
+                val position = when (drawCount) {
+                    1 -> "Центральная тема"
+                    3 -> listOf("Ситуация", "Влияющий фактор", "Направление")[index]
+                    else -> listOf(
+                        "Основа",
+                        "Препятствие",
+                        "Ресурс",
+                        "Действие",
+                        "Направление"
+                    )[index]
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                        .clickable { onRune(rune) },
+                    colors = CardDefaults.cardColors(containerColor = CardBg)
+                ) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            rune.symbol,
+                            color = GoldLight,
+                            fontSize = 49.sp,
+                            modifier = Modifier.width(72.dp)
+                        )
+                        Column {
+                            Text(
+                                position.uppercase(),
+                                color = Gold,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "${rune.name} • ${rune.russian}",
+                                color = GoldLight,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                rune.upright,
+                                color = Text,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (drawn.isNotEmpty()) {
+                Spacer(Modifier.height(15.dp))
+                Text(
+                    "Расклад предназначен для символической рефлексии. Его результат не устанавливает факты о будущем, здоровье или скрытых намерениях другого человека.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+    }
+}
+
+data class CandleGuide(
+    val title: String,
+    val color: String,
+    val runeNames: List<String>,
+    val intention: String,
+    val notes: String
+)
+
+private val candleGuides = listOf(
+    CandleGuide(
+        "Работа и профессиональные возможности",
+        "Золотистая, жёлтая или обычная неокрашенная",
+        listOf("RAIDHO", "ANSUZ", "FEHU"),
+        "Направляю внимание и действия на поиск подходящих профессиональных возможностей, ясное общение и материально приемлемый результат.",
+        "Цвет здесь символический, а не обязательный. Для работы важнее безопасная свеча и ясная формулировка цели."
+    ),
+    CandleGuide(
+        "Семейная гармонизация",
+        "Белая, кремовая или светлая",
+        listOf("GEBO", "ANSUZ", "WUNJO"),
+        "Сосредотачиваюсь на взаимном уважении, ясном общении и действиях, поддерживающих спокойное взаимодействие.",
+        "Практика не заменяет разговор и реальные действия участников отношений."
+    ),
+    CandleGuide(
+        "Материальная устойчивость",
+        "Зелёная, золотистая или неокрашенная",
+        listOf("FEHU", "JERA", "TIWAZ"),
+        "Сосредотачиваюсь на разумном управлении ресурсами и последовательных действиях для улучшения финансового положения.",
+        "Не следует воспринимать свечу как гарантию дохода или замену финансовым решениям."
+    ),
+    CandleGuide(
+        "Ясность решения",
+        "Белая или жёлтая",
+        listOf("KENAZ", "ANSUZ", "MANNAZ"),
+        "Использую время практики, чтобы спокойно рассмотреть информацию, собственную позицию и возможные действия.",
+        "Особенно полезно письменно зафиксировать факты, предположения и следующий реальный шаг."
+    )
+)
+
+@Composable
+private fun CandlesScreen(onBack: () -> Unit) {
+    var selected by remember { mutableStateOf<CandleGuide?>(null) }
+
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader("СВЕЧИ", "Символическая практика и безопасность")
+
+            Spacer(Modifier.height(18.dp))
+
+            candleGuides.forEach { guide ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .clickable { selected = guide },
+                    colors = CardDefaults.cardColors(
+                        containerColor =
+                            if (selected == guide)
+                                Color(0xFF2A200F)
+                            else CardBg
+                    )
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            guide.title,
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            guide.color,
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            selected?.let { guide ->
+                Spacer(Modifier.height(20.dp))
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CardBg)
+                ) {
+                    Column(Modifier.padding(18.dp)) {
+                        Text(
+                            guide.title,
+                            color = GoldLight,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text("ЦВЕТ", color = Gold, fontSize = 11.sp)
+                        Text(guide.color, color = Text)
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text("РУНЫ", color = Gold, fontSize = 11.sp)
+                        Row {
+                            guide.runeNames.forEach { RuneChip(it) }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                            "ФОРМУЛИРОВКА НАМЕРЕНИЯ",
+                            color = Gold,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            guide.intention,
+                            color = Text,
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(Modifier.height(14.dp))
+
+                        Text(
+                            "ПОРЯДОК",
+                            color = Gold,
+                            fontSize = 11.sp
+                        )
+
+                        Text(
+                            "1. Установите свечу в устойчивый негорючий подсвечник.\n\n" +
+                            "2. Знак можно аккуратно процарапать на внешней поверхности свечи до её зажигания.\n\n" +
+                            "3. Сформулируйте намерение и зажгите свечу как начало выбранного времени практики.\n\n" +
+                            "4. Не оставляйте горящую свечу без присмотра. Держите её вдали от детей, животных, ткани, бумаги и сквозняка.\n\n" +
+                            "5. Для завершения безопасно погасите пламя. Остатки воска после остывания утилизируйте с бытовыми отходами, если материал свечи не предполагает иной безопасный способ.",
+                            color = Text,
+                            lineHeight = 20.sp,
+                            fontSize = 13.sp
+                        )
+
+                        Spacer(Modifier.height(14.dp))
+
+                        Text(
+                            "ТРАВЫ И МАСЛА",
+                            color = Gold,
+                            fontSize = 11.sp
+                        )
+
+                        Text(
+                            "Приложение не рекомендует обкладывать фитиль сухими травами, порошками или эфирными маслами: это может резко увеличить пламя и создать пожарную опасность. Если нужен аромат, безопаснее использовать предназначенный для этого отдельный продукт согласно инструкции производителя.",
+                            color = Text,
+                            lineHeight = 20.sp,
+                            fontSize = 13.sp
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+                        Text(guide.notes, color = Muted, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+data class SourceEntry(
+    val group: String,
+    val title: String,
+    val description: String,
+    val url: String? = null
+)
+
+private val sourceEntries = listOf(
+    SourceEntry(
+        "ИСТОРИЧЕСКИЕ ПЕРВОИСТОЧНИКИ",
+        "Старшая Эдда / рунический культурный контекст",
+        "Эддические тексты важны для понимания германо-скандинавской мифологической среды, однако они не являются современным учебником гадательных значений Старшего футарка."
+    ),
+    SourceEntry(
+        "ИСТОРИЧЕСКИЕ ПЕРВОИСТОЧНИКИ",
+        "Англосаксонская руническая поэма",
+        "Один из ключевых текстовых источников для традиционных образов отдельных рун. Англосаксонский футорк не тождественен 24-знаковому Старшему футарку.",
+        "https://en.wikisource.org/wiki/Rune_poems"
+    ),
+    SourceEntry(
+        "ИСТОРИЧЕСКИЕ ПЕРВОИСТОЧНИКИ",
+        "Норвежская руническая поэма",
+        "Средневековый источник по образам младшего футарка. Используется сравнительно и не доказывает современные эзотерические значения.",
+        "https://en.wikisource.org/wiki/Rune_poems"
+    ),
+    SourceEntry(
+        "ИСТОРИЧЕСКИЕ ПЕРВОИСТОЧНИКИ",
+        "Исландская руническая поэма",
+        "Средневековая традиция образов рун младшего футарка; полезна для сравнительного анализа.",
+        "https://en.wikisource.org/wiki/Rune_poems"
+    ),
+    SourceEntry(
+        "АКАДЕМИЧЕСКИЙ УРОВЕНЬ",
+        "Michael P. Barnes — Runes: A Handbook",
+        "Исследование истории рунических письменностей, надписей и принципов их интерпретации.",
+        "https://books.google.com/books?q=Michael+P+Barnes+Runes+A+Handbook"
+    ),
+    SourceEntry(
+        "АКАДЕМИЧЕСКИЙ УРОВЕНЬ",
+        "R. I. Page — Runes",
+        "Введение в историческую рунологию и археологический материал.",
+        "https://books.google.com/books?q=R+I+Page+Runes"
+    ),
+    SourceEntry(
+        "СОВРЕМЕННАЯ ПРАКТИКА",
+        "Современные гадательные интерпретации",
+        "Значения прямых и перевёрнутых рун, используемые в приложении для практической интерпретации, относятся к современным системам и не представляются как единая древняя традиция."
+    ),
+    SourceEntry(
+        "СОВРЕМЕННАЯ ПРАКТИКА",
+        "Ставы, оговоры и зеркальные руны",
+        "Это неоднородный пласт современных эзотерических методов. Конкретные значения различаются между авторами и школами, поэтому приложение маркирует их отдельно."
+    )
+)
+
+@Composable
+private fun SourcesScreen(onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader(
+                "ИСТОЧНИКИ",
+                "История отдельно от современной практики"
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            Text(
+                "Это разделение принципиально: наличие современного эзотерического значения не означает, что оно засвидетельствовано археологическими или средневековыми источниками.",
+                color = Text,
+                lineHeight = 21.sp,
+                fontSize = 13.sp
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            var lastGroup = ""
+
+            sourceEntries.forEach { source ->
+                if (source.group != lastGroup) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        source.group,
+                        color = Gold,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    lastGroup = source.group
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = CardBg
+                    )
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            source.title,
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            source.description,
+                            color = Text,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp
+                        )
+
+                        source.url?.let { url ->
+                            Spacer(Modifier.height(10.dp))
+
+                            TextButton(
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            Uri.parse(url)
+                                        )
+                                    )
+                                }
+                            ) {
+                                Text(
+                                    "ОТКРЫТЬ В БРАУЗЕРЕ ↗",
+                                    color = Gold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+@Composable
+private fun JournalScreen(
+    onBack: () -> Unit
+) {
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
+
+    var entries by remember {
+        mutableStateOf(LocalStore.loadJournal(context))
+    }
+
+    var client by remember {
+        mutableStateOf("")
+    }
+
+    var request by remember {
+        mutableStateOf("")
+    }
+
+    var notes by remember {
+        mutableStateOf("")
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 50.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader(
+                "ЖУРНАЛ",
+                "Локальные рабочие записи"
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF131B17)
+                )
+            ) {
+                Text(
+                    "Записи хранятся только в локальном хранилище приложения. Для рабочих заметок предпочтительнее использовать псевдоним или номер клиента вместо лишних персональных данных.",
+                    color = Text,
+                    modifier = Modifier.padding(15.dp),
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+            }
+
+            Spacer(Modifier.height(15.dp))
+
+            OutlinedTextField(
+                value = client,
+                onValueChange = { client = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Клиент / псевдоним")
+                },
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = request,
+                onValueChange = { request = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Запрос")
+                },
+                minLines = 2
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Результат / заметки")
+                },
+                minLines = 3
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Button(
+                onClick = {
+                    if (request.isNotBlank()) {
+                        val newEntry = JournalEntry(
+                            id = System.currentTimeMillis(),
+                            client =
+                                client.ifBlank {
+                                    "Без имени"
+                                },
+                            request = request.trim(),
+                            result = notes.trim(),
+                            date = currentDateString()
+                        )
+
+                        entries =
+                            listOf(newEntry) + entries
+
+                        LocalStore.saveJournal(
+                            context,
+                            entries
+                        )
+
+                        client = ""
+                        request = ""
+                        notes = ""
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Gold,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text(
+                    "СОХРАНИТЬ ЗАПИСЬ",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(Modifier.height(25.dp))
+
+            Text(
+                "СОХРАНЁННЫЕ ЗАПИСИ",
+                color = Gold,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (entries.isEmpty()) {
+                Text(
+                    "Журнал пока пуст.",
+                    color = Muted,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+            }
+
+            entries.forEach { entry ->
+                var expanded by remember(entry.id) {
+                    mutableStateOf(false)
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .clickable {
+                            expanded = !expanded
+                        },
+                    colors = CardDefaults.cardColors(
+                        containerColor = CardBg
+                    )
+                ) {
+                    Column(
+                        Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            entry.client,
+                            color = GoldLight,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Text(
+                            entry.date,
+                            color = Muted,
+                            fontSize = 11.sp
+                        )
+
+                        Spacer(Modifier.height(5.dp))
+
+                        Text(
+                            entry.request,
+                            color = Text,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+
+                        AnimatedVisibility(expanded) {
+                            Column {
+                                if (entry.result.isNotBlank()) {
+                                    Spacer(Modifier.height(10.dp))
+
+                                    Text(
+                                        "ЗАМЕТКИ",
+                                        color = Gold,
+                                        fontSize = 10.sp
+                                    )
+
+                                    Text(
+                                        entry.result,
+                                        color = Text,
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+
+                                Button(
+                                    onClick = {
+                                        entries =
+                                            entries.filterNot {
+                                                it.id == entry.id
+                                            }
+
+                                        LocalStore.saveJournal(
+                                            context,
+                                            entries
+                                        )
+                                    },
+                                    colors =
+                                        ButtonDefaults.buttonColors(
+                                            containerColor =
+                                                Color(0xFF382020),
+                                            contentColor =
+                                                Color(0xFFFFC8C8)
+                                        )
+                                ) {
+                                    Text("УДАЛИТЬ")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoritesScreen(
+    onBack: () -> Unit,
+    onRune: (RuneInfo) -> Unit
+) {
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
+
+    val names = remember {
+        LocalStore.favoriteNames(context)
+    }
+
+    val favoriteRunes = runes.filter {
+        it.name in names
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
+        item {
+            TextButton(onClick = onBack) {
+                Text("‹ ГЛАВНАЯ", color = Gold)
+            }
+
+            AppHeader(
+                "ИЗБРАННОЕ",
+                "Сохранённые руны"
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            if (favoriteRunes.isEmpty()) {
+                Text(
+                    "Пока ничего не сохранено. Откройте карточку любой руны и нажмите «Добавить в избранное».",
+                    color = Text,
+                    lineHeight = 21.sp
+                )
+            }
+
+            favoriteRunes.forEach { rune ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .clickable {
+                            onRune(rune)
+                        },
+                    colors = CardDefaults.cardColors(
+                        containerColor = CardBg
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Text(
+                            rune.symbol,
+                            color = GoldLight,
+                            fontSize = 45.sp,
+                            modifier = Modifier.width(70.dp)
+                        )
+
+                        Column {
+                            Text(
+                                "${rune.name} • ${rune.russian}",
+                                color = GoldLight,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                rune.keywords,
+                                color = Muted,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 private fun PlaceholderScreen(
