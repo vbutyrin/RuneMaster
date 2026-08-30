@@ -1,5 +1,8 @@
 package com.runemaster.app
 
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.DrawScope
+
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
