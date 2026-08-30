@@ -1415,7 +1415,22 @@ sealed class Screen {
     ) : Screen()
     data object Candles : Screen()
     data object Sources : Screen()
+
     data object Journal : Screen()
+
+    data class ClientSession(
+        val draft: ClientSessionDraft? = null
+    ) : Screen()
+
+    data class ClientRuneDetail(
+        val rune: RuneInfo,
+        val draft: ClientSessionDraft
+    ) : Screen()
+
+    data class ClientFormulaEditor(
+        val draft: ClientSessionDraft
+    ) : Screen()
+
     data object Favorites : Screen()
     data class Placeholder(val title: String, val description: String) : Screen()
 }
@@ -1596,8 +1611,56 @@ fun RuneMasterApp() {
         Screen.Sources -> SourcesScreen(
             onBack = { screen = Screen.Home }
         )
-        Screen.Journal -> JournalScreen(
-            onBack = { screen = Screen.Home }
+        is Screen.ClientSession -> NewClientSessionScreen(
+            initial = current.draft,
+            runeLookup = { runeName ->
+                runes.find { rune ->
+                    rune.name == runeName
+                }
+            },
+            onBack = {
+                screen = Screen.Journal
+            },
+            onRune = { rune, draft ->
+                if (draft != null) {
+                    screen = Screen.ClientRuneDetail(
+                        rune = rune,
+                        draft = draft
+                    )
+                }
+            },
+            onFormula = { draft ->
+                screen = Screen.ClientFormulaEditor(
+                    draft = draft
+                )
+            }
+        )
+
+        is Screen.ClientRuneDetail -> RuneDetailScreen(
+            rune = current.rune,
+            onBack = {
+                screen = Screen.ClientSession(
+                    draft = current.draft
+                )
+            }
+        )
+
+        is Screen.ClientFormulaEditor -> RuneEditorScreen(
+            onBack = {
+                screen = Screen.ClientSession(
+                    draft = current.draft
+                )
+            },
+            initialFormula = current.draft.formula
+        )
+
+        Screen.Journal -> ProfessionalWorkspaceScreen(
+            onBack = {
+                screen = Screen.Home
+            },
+            onNewClientSession = {
+                screen = Screen.ClientSession()
+            }
         )
         Screen.Favorites -> FavoritesScreen(
             onBack = { screen = Screen.Home },
