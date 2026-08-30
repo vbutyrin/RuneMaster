@@ -1559,7 +1559,9 @@ fun RuneMasterApp() {
         )
         Screen.Favorites -> FavoritesScreen(
             onBack = { screen = Screen.Home },
-            onRune = { screen = Screen.RuneDetail(it) }
+            onRune = { rune: RuneInfo ->
+                screen = Screen.RuneDetail(rune)
+            }
         )
         is Screen.Placeholder -> PlaceholderScreen(
             current.title,
