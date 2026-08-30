@@ -376,9 +376,24 @@ fun RuneEditorScreen(
                                                 checkpoint()
                                             }
                                         } else {
+                                            // Касание пустой области не сбрасывает
+                                            // выбранный через панель слоёв объект.
                                             lastHitPosition = touch
                                             lastHitIndex = 0
-                                            activeId = null
+
+                                            activeId = currentSelected
+
+                                            val selectedRune =
+                                                currentElements.find {
+                                                    it.id == activeId
+                                                }
+
+                                            if (
+                                                selectedRune != null &&
+                                                !selectedRune.locked
+                                            ) {
+                                                checkpoint()
+                                            }
                                         }
                                     }
 
