@@ -17,6 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.positionChanged
+import kotlin.math.min
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -175,11 +178,17 @@ fun RuneEditorScreen(onBack: () -> Unit) {
                                                         size.height *
                                                             rune.y
 
+                                                    val canvasMin =
+                                                        min(
+                                                            size.width.toFloat(),
+                                                            size.height.toFloat()
+                                                        )
+
                                                     val radius =
-                                                        size.minDimension *
+                                                        canvasMin *
                                                             .15f *
                                                             rune.scale
-                                                            .coerceAtLeast(.6f)
+                                                                .coerceAtLeast(.6f)
 
                                                     hypot(
                                                         touch.x - cx,
