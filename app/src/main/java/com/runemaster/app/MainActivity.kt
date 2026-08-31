@@ -1416,7 +1416,8 @@ sealed class Screen {
     data object Formulas : Screen()
     data object Constructor : Screen()
     data class FormulaEditor(
-        val formula: EditorFormulaInput
+        val formula: EditorFormulaInput,
+        val clientDraft: ClientSessionDraft? = null
     ) : Screen()
     data object Candles : Screen()
     data object Sources : Screen()
@@ -1429,10 +1430,6 @@ sealed class Screen {
 
     data class ClientRuneDetail(
         val rune: RuneInfo,
-        val draft: ClientSessionDraft
-    ) : Screen()
-
-    data class ClientFormulaEditor(
         val draft: ClientSessionDraft
     ) : Screen()
 
@@ -1547,6 +1544,75 @@ fun RuneMasterApp() {
         mutableStateOf("")
     }
 
+    /*
+     * Единая точка сохранения сеанса клиента:
+     * используется и редактором (композиция рун),
+     * и быстрым сохранением без редактирования.
+     */
+    fun saveClientSession(
+        draft: ClientSessionDraft,
+        compositionJson: String,
+        formulaExplanation: String
+    ) {
+        val analysis =
+            RuneSolutionEngine
+                .solve(draft.problem)
+
+        val analysisText =
+            buildString {
+                append("Сферы: ")
+                append(
+                    analysis.analysis
+                        .domains
+                        .joinToString()
+                )
+
+                append("\nПроблемы: ")
+                append(
+                    analysis.analysis
+                        .problems
+                        .joinToString()
+                )
+
+                append("\nЦели: ")
+                append(
+                    analysis.analysis
+                        .intents
+                        .joinToString()
+                )
+            }
+
+        professionalViewModel
+            .saveCompleteSession(
+                clientName =
+                    draft.clientName,
+                clientNotes =
+                    draft.clientNotes,
+                request =
+                    draft.problem,
+                analysis =
+                    analysisText,
+                practitionerNotes =
+                    draft.practitionerNotes,
+                formulaTitle =
+                    draft.formula.title,
+                intention =
+                    draft.formula.intention,
+                primaryRune =
+                    draft.formula.primaryRune,
+                supportingRunes =
+                    draft.formula.supportingRunes,
+                formulaExplanation =
+                    formulaExplanation,
+                compositionJson =
+                    compositionJson,
+                onSaved = {
+                    screen =
+                        Screen.Journal
+                }
+            )
+    }
+
     BackHandler(screen !is Screen.Home) {
         screen = Screen.Home
     }
@@ -1616,69 +1682,15 @@ fun RuneMasterApp() {
             initialFormula = current.formula,
             clientDraft = current.clientDraft,
             onSaveClient = { draft, editorRunes ->
-
-                val composition =
-                    serializeEditorRunes(
-                        editorRunes
-                    )
-
-                val analysis =
-                    RuneSolutionEngine
-                        .solve(draft.problem)
-
-                val analysisText =
-                    buildString {
-                        append("Сферы: ")
-                        append(
-                            analysis.analysis
-                                .domains
-                                .joinToString()
-                        )
-
-                        append("\nПроблемы: ")
-                        append(
-                            analysis.analysis
-                                .problems
-                                .joinToString()
-                        )
-
-                        append("\nЦели: ")
-                        append(
-                            analysis.analysis
-                                .intents
-                                .joinToString()
-                        )
-                    }
-
-                professionalViewModel
-                    .saveCompleteSession(
-                        clientName =
-                            draft.clientName,
-                        clientNotes =
-                            draft.clientNotes,
-                        request =
-                            draft.problem,
-                        analysis =
-                            analysisText,
-                        practitionerNotes =
-                            draft.practitionerNotes,
-                        formulaTitle =
-                            draft.formula.title,
-                        intention =
-                            draft.formula.intention,
-                        primaryRune =
-                            draft.formula.primaryRune,
-                        supportingRunes =
-                            draft.formula.supportingRunes,
-                        formulaExplanation =
-                            "Индивидуальная формула, отредактированная в Rune Editor",
-                        compositionJson =
-                            composition,
-                        onSaved = {
-                            screen =
-                                Screen.Journal
-                        }
-                    )
+                saveClientSession(
+                    draft = draft,
+                    compositionJson =
+                        serializeEditorRunes(
+                            editorRunes
+                        ),
+                    formulaExplanation =
+                        "Индивидуальная формула, отредактированная в Rune Editor"
+                )
             }
         )
 
@@ -1707,8 +1719,17 @@ fun RuneMasterApp() {
                 }
             },
             onFormula = { draft ->
-                screen = Screen.ClientFormulaEditor(
-                    draft = draft
+                screen = Screen.FormulaEditor(
+                    formula = draft.formula,
+                    clientDraft = draft
+                )
+            },
+            onQuickSave = { draft ->
+                saveClientSession(
+                    draft = draft,
+                    compositionJson = "",
+                    formulaExplanation =
+                        "Формула сохранена без редактирования в Rune Editor"
                 )
             }
         )
@@ -1720,15 +1741,6 @@ fun RuneMasterApp() {
                     draft = current.draft
                 )
             }
-        )
-
-        is Screen.ClientFormulaEditor -> RuneEditorScreen(
-            onBack = {
-                screen = Screen.ClientSession(
-                    draft = current.draft
-                )
-            },
-            initialFormula = current.draft.formula
         )
 
         Screen.Journal -> ProfessionalWorkspaceScreen(
